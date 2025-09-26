@@ -1,29 +1,29 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Navigation } from './components/Navigation';
 import { Dashboard } from './components/Dashboard';
 import { ProductManagement } from './components/ProductManagement';
 import { CustomerManagement } from './components/CustomerManagement';
 import { Reports } from './components/Reports';
 import { useInventory } from './hooks/useInventory';
-import { loadProductsFromStorage, saveProductsToStorage } from './lib/csvUtils';
+// csvUtils not used here anymore; persistence handled by useInventory hook
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
-  // Estado global para produtos
-  const [products, setProducts] = useState(() => loadProductsFromStorage());
+  // useInventory fornece produtos e operações (persistidas no hook)
   const {
+    products,
     customers,
     customerProducts,
+    addProduct,
+    updateProduct,
+    deleteProduct,
     addCustomer,
     updateCustomer,
     deleteCustomer,
     assignProductToCustomer,
+    assignProductToCustomerBySerials,
     removeProductFromCustomer,
   } = useInventory();
-
-  React.useEffect(() => {
-    saveProductsToStorage(products);
-  }, [products]);
 
   const renderContent = () => {
     switch (activeTab) {
@@ -39,7 +39,9 @@ function App() {
         return (
           <ProductManagement
             products={products}
-            setProducts={setProducts}
+            onAddProduct={addProduct}
+            onUpdateProduct={updateProduct}
+            onDeleteProduct={deleteProduct}
           />
         );
       case 'customers':
@@ -52,6 +54,7 @@ function App() {
             onUpdateCustomer={updateCustomer}
             onDeleteCustomer={deleteCustomer}
             onAssignProduct={assignProductToCustomer}
+            onAssignProductBySerials={assignProductToCustomerBySerials}
             onRemoveProductFromCustomer={removeProductFromCustomer}
           />
         );
