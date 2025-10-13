@@ -29,12 +29,8 @@ export function customersToCSV(customers: Customer[]): string {
 }
 
 export function productsToCSV(products: Product[]): string {
-  const header = 'id,name,description,price,stock,category,brand,serialNumbers,createdAt';
-  const rows = products.map(p => {
-    const serials = (p.serialNumbers || []).join(';');
-    const brand = p.brand || '';
-    return `${p.id},${p.name},${p.description},${p.price},${p.stock},${p.category},${brand},${serials},${p.createdAt}`;
-  });
+  const header = 'id,name,description,price,stock,category,createdAt';
+  const rows = products.map(p => `${p.id},${p.name},${p.description},${p.price},${p.stock},${p.category},${p.createdAt}`);
   return [header, ...rows].join('\n');
 }
 

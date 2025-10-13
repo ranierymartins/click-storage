@@ -10,7 +10,6 @@ interface CustomerManagementProps {
   onUpdateCustomer: (id: string, updates: Partial<Customer>) => void;
   onDeleteCustomer: (id: string) => void;
   onAssignProduct: (customerId: string, productId: string, quantity: number) => void;
-  onAssignProductBySerials?: (customerId: string, productId: string, serials: string[]) => void;
   onRemoveProductFromCustomer: (customerProductId: string) => void;
 }
 
@@ -22,7 +21,6 @@ export function CustomerManagement({
   onUpdateCustomer,
   onDeleteCustomer,
   onAssignProduct,
-  onAssignProductBySerials,
   onRemoveProductFromCustomer,
 }: CustomerManagementProps) {
   const [showForm, setShowForm] = useState(false);
@@ -32,7 +30,6 @@ export function CustomerManagement({
     productId: '',
     quantity: 1,
   });
-  const [selectedSerials, setSelectedSerials] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -74,14 +71,8 @@ export function CustomerManagement({
 
   const handleProductAssignment = (customerId: string) => {
     if (assignmentForm.productId && assignmentForm.quantity > 0) {
-      // if user selected serials and handler provided, assign by serials
-      if (selectedSerials.length > 0 && onAssignProductBySerials) {
-        onAssignProductBySerials(customerId, assignmentForm.productId, selectedSerials);
-      } else {
-        onAssignProduct(customerId, assignmentForm.productId, assignmentForm.quantity);
-      }
+      onAssignProduct(customerId, assignmentForm.productId, assignmentForm.quantity);
       setAssignmentForm({ productId: '', quantity: 1 });
-      setSelectedSerials([]);
       setShowProductAssignment(null);
     }
   };
@@ -116,7 +107,7 @@ export function CustomerManagement({
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Nome Fantasia
+                Nome Completo
               </label>
               <input
                 type="text"
@@ -268,43 +259,6 @@ export function CustomerManagement({
                         Associar
                       </button>
                     </div>
-                    {/* Se o produto selecionado tiver seriais, mostrar lista para seleção */}
-                    {assignmentForm.productId && (() => {
-                      const prod = products.find(p => p.id === assignmentForm.productId);
-                      if (!prod) return null;
-                      const rawSerials = (prod as any).serialNumbers;
-                      const availableSerials: string[] = Array.isArray(rawSerials)
-                        ? rawSerials
-                        : typeof rawSerials === 'string'
-                          ? rawSerials.split(';').map((s: string) => s.trim()).filter((s: string) => s)
-                          : [];
-
-                      if (availableSerials.length === 0) return null;
-
-                      return (
-                        <div className="mt-3">
-                          <p className="text-sm text-gray-600 mb-2">Selecione os números de série para associar (máx {assignmentForm.quantity}):</p>
-                          <div className="grid grid-cols-2 gap-2 max-h-40 overflow-auto">
-                            {availableSerials.map((s) => (
-                              <label key={s} className="flex items-center space-x-2 bg-white p-2 rounded border">
-                                <input
-                                  type="checkbox"
-                                  checked={selectedSerials.includes(s)}
-                                  onChange={(e) => {
-                                    if (e.target.checked) {
-                                      setSelectedSerials(prev => prev.length < assignmentForm.quantity ? [...prev, s] : prev);
-                                    } else {
-                                      setSelectedSerials(prev => prev.filter(x => x !== s));
-                                    }
-                                  }}
-                                />
-                                <span className="text-sm">{s}</span>
-                              </label>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })()}
                   </div>
                 )}
 

@@ -4,11 +4,10 @@ import { Product } from '../types';
 
 interface ProductManagementProps {
   products: Product[];
-  onAddProduct: (product: Omit<Product, 'id' | 'createdAt'>) => void;
-  onUpdateProduct: (id: string, updates: Partial<Product>) => void;
-  onDeleteProduct: (id: string) => void;
+  setProducts: React.Dispatch<React.SetStateAction<Product[]>>;
 }
-export function ProductManagement({ products, onAddProduct, onUpdateProduct, onDeleteProduct }: ProductManagementProps) {
+
+export function ProductManagement({ products, setProducts }: ProductManagementProps) {
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [formData, setFormData] = useState({
@@ -17,10 +16,7 @@ export function ProductManagement({ products, onAddProduct, onUpdateProduct, onD
     price: 0,
     stock: 0,
     category: '',
-    brand: '',
-    serialNumbers: [] as string[],
   });
-  const [formError, setFormError] = useState<string | null>(null);
 
   const resetForm = () => {
     setFormData({
@@ -29,12 +25,9 @@ export function ProductManagement({ products, onAddProduct, onUpdateProduct, onD
       price: 0,
       stock: 0,
       category: '',
-      brand: '',
-      serialNumbers: [],
     });
     setEditingProduct(null);
     setShowForm(false);
-    setFormError(null);
   };
 
   function generateId() {
@@ -43,57 +36,29 @@ export function ProductManagement({ products, onAddProduct, onUpdateProduct, onD
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // validação: quantidade deve ser igual ao número de números de série
-    if (formData.stock !== formData.serialNumbers.length) {
-      setFormError(`A quantidade (${formData.stock}) deve ser igual ao número de números de série (${formData.serialNumbers.length}).`);
-      return;
-    }
-
     if (editingProduct) {
-      onUpdateProduct(editingProduct.id, formData);
+      setProducts(products.map(p => p.id === editingProduct.id ? { ...p, ...formData } : p));
     } else {
-      onAddProduct(formData);
+      const newProduct = { ...formData, id: generateId(), createdAt: new Date() };
+      setProducts([...products, newProduct]);
     }
     resetForm();
   };
 
   const handleEdit = (product: Product) => {
     setEditingProduct(product);
-    // normaliza serialNumbers que podem vir como string (ex: "a;b;c") ou array
-    const rawSerials = (product as any).serialNumbers;
-    const serials = Array.isArray(rawSerials)
-      ? rawSerials
-      : typeof rawSerials === 'string'
-        ? rawSerials.split(';').map((s: string) => s.trim()).filter((s: string) => s)
-        : [];
-
     setFormData({
       name: product.name,
       description: product.description,
       price: product.price,
       stock: product.stock,
       category: product.category,
-      brand: (product as any).brand || '',
-      serialNumbers: serials,
     });
     setShowForm(true);
   };
 
-  const [detailProductId, setDetailProductId] = useState<string | null>(null);
-
-  const addSerial = (serial: string) => {
-    if (!serial) return;
-    setFormData(prev => ({ ...prev, serialNumbers: [...prev.serialNumbers, serial] }));
-    setFormError(null);
-  };
-
-  const removeSerialAt = (index: number) => {
-    setFormData(prev => ({ ...prev, serialNumbers: prev.serialNumbers.filter((_, i) => i !== index) }));
-    setFormError(null);
-  };
-
   const handleDelete = (id: string) => {
-    onDeleteProduct(id);
+    setProducts(products.filter(p => p.id !== id));
   };
 
   return (
@@ -175,67 +140,10 @@ export function ProductManagement({ products, onAddProduct, onUpdateProduct, onD
                 required
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Marca</label>
-              <input
-                type="text"
-                value={formData.brand}
-                onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Números de Série</label>
-              <div className="mb-2">
-                <div className="flex space-x-2">
-                  <input
-                    type="text"
-                    placeholder="Adicionar número de série"
-                    id="serial-input"
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        const el = e.target as HTMLInputElement;
-                        addSerial(el.value.trim());
-                        el.value = '';
-                      }
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const el = document.getElementById('serial-input') as HTMLInputElement | null;
-                      if (el) { addSerial(el.value.trim()); el.value = ''; }
-                    }}
-                    className="bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                  >Adicionar</button>
-                </div>
-              </div>
-              <div className="space-y-1">
-                {formData.serialNumbers.map((s, i) => (
-                  <div key={i} className="flex items-center justify-between bg-gray-50 p-2 rounded">
-                    <span className="text-sm">{s}</span>
-                    <button type="button" onClick={() => removeSerialAt(i)} className="text-red-600 text-sm">Remover</button>
-                  </div>
-                ))}
-                {formData.serialNumbers.length === 0 && (
-                  <p className="text-xs text-gray-500">Adicione números de série individuais. Se cadastrar 10 unidades, cadastre 10 seriais.</p>
-                )}
-              </div>
-            </div>
-            {/* helper mostrando comparação entre estoque e seriais */}
-            <div className="md:col-span-2">
-              <p className={`text-sm mb-2 ${formData.stock === formData.serialNumbers.length ? 'text-green-600' : 'text-red-600'}`}>
-                Quantidade: {formData.stock} — Seriais cadastrados: {formData.serialNumbers.length} {formData.stock === formData.serialNumbers.length ? '✓' : ' (devem ser iguais)'}
-              </p>
-              {formError && <p className="text-sm text-red-600 mb-2">{formError}</p>}
-            </div>
             <div className="md:col-span-2 flex space-x-4">
               <button
                 type="submit"
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={formData.stock !== formData.serialNumbers.length}
+                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
               >
                 {editingProduct ? 'Atualizar' : 'Criar'} Produto
               </button>
@@ -285,7 +193,7 @@ export function ProductManagement({ products, onAddProduct, onUpdateProduct, onD
               </div>
             </div>
 
-            <div className="flex space-x-2 mb-3">
+            <div className="flex space-x-2">
               <button
                 onClick={() => handleEdit(product)}
                 className="flex-1 bg-blue-50 text-blue-600 px-3 py-2 rounded-lg hover:bg-blue-100 transition-colors flex items-center justify-center space-x-2"
@@ -300,41 +208,7 @@ export function ProductManagement({ products, onAddProduct, onUpdateProduct, onD
                 <Trash2 className="h-4 w-4" />
                 <span>Excluir</span>
               </button>
-              <button
-                onClick={() => setDetailProductId(detailProductId === product.id ? null : product.id)}
-                className="flex-1 bg-gray-50 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors flex items-center justify-center space-x-2"
-              >
-                <span>Ver Detalhes</span>
-              </button>
             </div>
-            {detailProductId === product.id && (() => {
-              // normaliza serialNumbers para exibição
-              const rawSerials = (product as any).serialNumbers;
-              const serialList: string[] = Array.isArray(rawSerials)
-                ? rawSerials
-                : typeof rawSerials === 'string'
-                  ? rawSerials.split(';').map((s: string) => s.trim()).filter((s: string) => s)
-                  : [];
-
-              return (
-                <div className="mt-3 bg-gray-50 p-3 rounded-lg border border-gray-100">
-                  <h4 className="font-medium text-gray-900 mb-2">Detalhes do Grupo</h4>
-                  <p className="text-sm text-gray-600 mb-2"><span className="font-medium">Marca:</span> {(product as any).brand || '-'}</p>
-                  <div>
-                    <h5 className="text-sm font-medium text-gray-800 mb-1">Números de Série</h5>
-                    {serialList.length > 0 ? (
-                      <ul className="list-disc list-inside text-sm text-gray-700">
-                        {serialList.map((s: string, i: number) => (
-                          <li key={i}>{s}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-xs text-gray-500">Nenhum número de série cadastrado para este grupo.</p>
-                    )}
-                  </div>
-                </div>
-              );
-            })()}
           </div>
         ))}
 
