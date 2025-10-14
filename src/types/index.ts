@@ -6,6 +6,7 @@ export interface Product {
   stock: number;
   category: string;
   createdAt: Date;
+  serialNumbers?: string[];
 }
 
 export interface Customer {

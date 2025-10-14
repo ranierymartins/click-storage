@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { Plus, Edit, Trash2, Package } from 'lucide-react';
 import { Product } from '../types';
-import { getDb } from '../lib/sqlite';
 
 interface ProductManagementProps {
   products: Product[];
-  onCreateProduct?: (prod: Omit<Product, 'id' | 'createdAt'> & { serialNumbers: string[] }) => void;
-  onUpdateProduct?: (id: string, updates: Partial<Product>) => void;
+  onCreateProduct?: (prod: Omit<Product, 'id' | 'createdAt'>, serialNumbers: string[]) => void;
+  onUpdateProduct?: (id: string, updates: Partial<Product>, serialNumbers?: string[]) => void;
   onDeleteProduct?: (id: string) => void;
 }
 
@@ -53,36 +52,16 @@ export function ProductManagement({ products, onCreateProduct, onUpdateProduct, 
       alert('O número de números de série deve corresponder à quantidade em estoque.');
       return;
     }
-    const db = getDb();
+
     if (editingProduct) {
-      db.run(
-        'UPDATE products SET name = ?, description = ?, price = ?, stock = ?, category = ? WHERE id = ?',
-        [formData.name, formData.description, formData.price, formData.stock, formData.category, editingProduct.id]
-      );
-      db.run('DELETE FROM product_serial_numbers WHERE product_id = ?', [editingProduct.id]);
-      serialNumbers.forEach((serial) => {
-        db.run('INSERT INTO product_serial_numbers (product_id, serial_number) VALUES (?, ?)', [editingProduct.id, serial]);
-      });
-      onUpdateProduct?.(editingProduct.id, formData);
+      onUpdateProduct?.(editingProduct.id, formData, serialNumbers);
     } else {
-      const id = Date.now().toString();
-      db.run(
-        'INSERT INTO products (id, name, description, price, stock, category) VALUES (?, ?, ?, ?, ?, ?)',
-        [id, formData.name, formData.description, formData.price, formData.stock, formData.category]
-      );
-      serialNumbers.forEach((serial) => {
-        db.run('INSERT INTO product_serial_numbers (product_id, serial_number) VALUES (?, ?)', [id, serial]);
-      });
-      onCreateProduct?.({ ...formData, id, serialNumbers });
+      onCreateProduct?.(formData, serialNumbers);
     }
     resetForm();
   };
 
   const handleEdit = (product: Product) => {
-    const db = getDb();
-    const serials = db
-      .exec('SELECT serial_number FROM product_serial_numbers WHERE product_id = ?', [product.id])
-      .flatMap((row) => row.values.map((v) => v[0]));
     setEditingProduct(product);
     setFormData({
       name: product.name,
@@ -91,15 +70,14 @@ export function ProductManagement({ products, onCreateProduct, onUpdateProduct, 
       stock: product.stock,
       category: product.category,
     });
-    setSerialNumbers(serials);
+    setSerialNumbers(product.serialNumbers || []);
     setShowForm(true);
   };
 
   const handleDelete = (id: string) => {
-    const db = getDb();
-    db.run('DELETE FROM products WHERE id = ?', [id]);
-    db.run('DELETE FROM product_serial_numbers WHERE product_id = ?', [id]);
-    onDeleteProduct?.(id);
+    if (confirm('Tem certeza que deseja excluir este produto?')) {
+      onDeleteProduct?.(id);
+    }
   };
 
   return (

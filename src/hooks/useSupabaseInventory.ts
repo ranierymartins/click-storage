@@ -1,1 +1,0 @@
-// Arquivo removido, pois não usamos Supabase.

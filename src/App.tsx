@@ -4,29 +4,42 @@ import { Dashboard } from './components/Dashboard';
 import { ProductManagement } from './components/ProductManagement';
 import { CustomerManagement } from './components/CustomerManagement';
 import { Reports } from './components/Reports';
-import { useSqliteInventory } from './hooks/useSqliteInventory';
+import { useJsonInventory } from './hooks/useJsonInventory';
+import { LoadingSpinner } from './components/LoadingSpinner';
+import { ErrorMessage } from './components/ErrorMessage';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const sqlite = useSqliteInventory();
-
   const {
-    ready,
     products,
     customers,
     customerProducts,
-    createProduct,
+    loading,
+    error,
+    addProduct,
     updateProduct,
     deleteProduct,
-    createCustomer,
+    addCustomer,
     updateCustomer,
     deleteCustomer,
     assignProductToCustomer,
     removeProductFromCustomer,
-  } = sqlite;
+  } = useJsonInventory();
 
-  if (!ready) {
-    return <div>Carregando...</div>;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <ErrorMessage message={error} />
+      </div>
+    );
   }
 
   const renderContent = () => {
@@ -43,7 +56,7 @@ function App() {
         return (
           <ProductManagement
             products={products}
-            onCreateProduct={createProduct}
+            onCreateProduct={addProduct}
             onUpdateProduct={updateProduct}
             onDeleteProduct={deleteProduct}
           />
@@ -54,7 +67,7 @@ function App() {
             customers={customers}
             products={products}
             customerProducts={customerProducts}
-            onAddCustomer={createCustomer}
+            onAddCustomer={addCustomer}
             onUpdateCustomer={updateCustomer}
             onDeleteCustomer={deleteCustomer}
             onAssignProduct={assignProductToCustomer}
