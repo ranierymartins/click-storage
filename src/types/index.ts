@@ -8,6 +8,7 @@ export interface Product {
   brand?: string; // marca do produto
   serialNumbers?: string[]; // lista de números de série individuais
   createdAt: Date;
+  serialNumbers?: string[];
 }
 
 export interface Customer {
