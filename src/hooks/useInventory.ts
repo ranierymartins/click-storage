@@ -1,8 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Product, Customer, CustomerProduct, Company, MaintenanceItem, CustomerAccessory } from '../types';
-
-// Enable remote sync by setting VITE_REMOTE_SYNC=true in your .env
-const REMOTE_SYNC_ENABLED = import.meta.env.VITE_REMOTE_SYNC === 'true';
+import { api } from '../lib/api';
 
 export function useInventory() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -14,418 +12,111 @@ export function useInventory() {
   const [customerAccessories, setCustomerAccessories] = useState<CustomerAccessory[]>([]);
   // Ref to avoid writing to localStorage during the initial load
   const initializedRef = useRef(false);
-  const remoteReadyRef = useRef(false);
 
-  // Load data from localStorage on mount
+  // Load initial data from API
   useEffect(() => {
-    let supabase: any | null = null;
-    const tryLoadRemote = async () => {
-      if (!REMOTE_SYNC_ENABLED) return;
+    (async () => {
       try {
-        const mod = await import('../lib/supabase');
-        supabase = mod.supabase;
-        // pull remote tables (products/customers/customer_products)
-        const [
-          { data: remoteProducts },
-          { data: remoteCustomers },
-          { data: remoteCustomerProducts },
-          { data: remoteCompanies },
-          { data: remoteAccessories },
-          { data: remoteMaintenance },
-          { data: remoteCustomerAccessories },
-        ] = await Promise.all([
-          supabase.from('products').select('*'),
-          supabase.from('customers').select('*'),
-          supabase.from('customer_products').select('*'),
-          supabase.from('companies').select('*'),
-          supabase.from('accessories').select('*'),
-          supabase.from('maintenance_items').select('*'),
-          supabase.from('customer_accessories').select('*'),
+        const [productsResp, customersResp, companiesResp] = await Promise.all([
+          api.get('/products'),
+          api.get('/customers'),
+          api.get('/companies'),
         ]);
-
-        if (remoteProducts && Array.isArray(remoteProducts) && remoteProducts.length > 0) {
-          const normalized = remoteProducts.map((p: any) => ({
+        const mappedProducts: Product[] = (productsResp || []).map((p: any) => ({
             id: p.id,
             name: p.name,
             description: p.description || '',
-            price: p.price || 0,
-            stock: p.stock || 0,
+          price: typeof p.price === 'number' ? p.price : Number(p.price || 0),
+          stock: typeof p.stock === 'number' ? p.stock : Number(p.stock || 0),
             category: p.category || '',
-            brand: (p as any).brand || undefined,
-            serialNumbers: (p as any).serial_numbers || [],
+          brand: p.brand || undefined,
+          serialNumbers: Array.isArray(p.serial_numbers) ? p.serial_numbers : [],
             createdAt: p.created_at ? new Date(p.created_at) : new Date(),
           }));
-          setProducts(normalized as Product[]);
-        }
-
-        if (remoteCustomers && Array.isArray(remoteCustomers) && remoteCustomers.length > 0) {
-          const normalized = remoteCustomers.map((c: any) => ({ id: c.id, name: c.name, email: c.email, phone: c.phone || '', address: c.address || '', createdAt: c.created_at ? new Date(c.created_at) : new Date() }));
-          setCustomers(normalized as Customer[]);
-        }
-
-        if (remoteCustomerProducts && Array.isArray(remoteCustomerProducts) && remoteCustomerProducts.length > 0) {
-          const normalized = remoteCustomerProducts.map((cp: any) => ({ id: cp.id, customerId: cp.customer_id, productId: cp.product_id, quantity: cp.quantity || 0, assignedAt: cp.assigned_at ? new Date(cp.assigned_at) : new Date() }));
-          setCustomerProducts(normalized as CustomerProduct[]);
-        }
-
-        if (remoteCompanies && Array.isArray(remoteCompanies) && remoteCompanies.length > 0) {
-          const normalized = remoteCompanies.map((c: any) => ({ id: c.id, name: c.name, email: c.email || '', phone: c.phone || '', address: c.address || '', createdAt: c.created_at ? new Date(c.created_at) : new Date() }));
-          setCompanies(normalized as Company[]);
-        }
-
-        if (remoteAccessories && Array.isArray(remoteAccessories) && remoteAccessories.length > 0) {
-          const normalized = remoteAccessories.map((a: any) => ({ id: a.id, name: a.name, description: a.description || '', price: a.price || 0, stock: a.stock || 0, brand: a.brand || undefined, serialNumbers: Array.isArray(a.serial_numbers) ? a.serial_numbers : (typeof a.serial_numbers === 'string' ? a.serial_numbers.split(';').map((s:string)=>s.trim()).filter((s:string)=>s) : []), createdAt: a.created_at ? new Date(a.created_at) : new Date() }));
-          setAccessories(normalized as any[]);
-        }
-
-        if (remoteMaintenance && Array.isArray(remoteMaintenance) && remoteMaintenance.length > 0) {
-          const normalized = remoteMaintenance.map((m: any) => ({ id: m.id, originalProductId: m.original_product_id || undefined, name: m.name, description: m.description || '', price: m.price || 0, stock: m.stock || 0, brand: m.brand || undefined, serialNumbers: Array.isArray(m.serial_numbers) ? m.serial_numbers : (typeof m.serial_numbers === 'string' ? m.serial_numbers.split(';').map((s:string)=>s.trim()).filter((s:string)=>s) : []), companyId: m.company_id || undefined, createdAt: m.created_at ? new Date(m.created_at) : new Date() }));
-          setMaintenanceItems(normalized as MaintenanceItem[]);
-        }
-
-        if (remoteCustomerAccessories && Array.isArray(remoteCustomerAccessories) && remoteCustomerAccessories.length > 0) {
-          const normalized = remoteCustomerAccessories.map((ca: any) => ({ id: ca.id, customerId: ca.customer_id, accessoryId: ca.accessory_id, quantity: ca.quantity || 0, serialNumbers: Array.isArray(ca.serial_numbers) ? ca.serial_numbers : (typeof ca.serial_numbers === 'string' ? ca.serial_numbers.split(';').map((s:string)=>s.trim()).filter((s:string)=>s) : []), assignedAt: ca.assigned_at ? new Date(ca.assigned_at) : new Date() }));
-          setCustomerAccessories(normalized as CustomerAccessory[]);
-        }
-
-        remoteReadyRef.current = true;
-        console.debug('[useInventory] loaded remote data from Supabase');
-      } catch (err) {
-        console.warn('[useInventory] remote sync enabled but failed to load Supabase client or data', err);
-      }
-    };
-
-    tryLoadRemote();
-  const savedProducts = localStorage.getItem('inventory-products');
-  const savedCustomers = localStorage.getItem('inventory-customers');
-  const savedCompanies = localStorage.getItem('inventory-companies');
-  const savedAccessories = localStorage.getItem('inventory-accessories');
-  const savedCustomerProducts = localStorage.getItem('inventory-customer-products');
-  const savedCustomerAccessories = localStorage.getItem('inventory-customer-accessories');
-  // legacy storage keys (older versions / csv utils)
-  const legacyProducts = localStorage.getItem('produtos');
-  const legacyCustomers = localStorage.getItem('clientes');
-  const legacyCompanies = localStorage.getItem('empresas');
-
-    if (savedProducts) {
-      try {
-        const parsed = JSON.parse(savedProducts) as any[];
-        const normalized = parsed.map(p => ({
-          ...p,
-          createdAt: p.createdAt ? new Date(p.createdAt) : new Date(),
-          // normalize serialNumbers stored as string to array
-          serialNumbers: Array.isArray(p.serialNumbers)
-            ? p.serialNumbers
-            : typeof p.serialNumbers === 'string'
-              ? (p.serialNumbers as string).split(';').map((s: string) => s.trim()).filter((s: string) => s)
-              : p.serialNumbers || [],
+        const mappedCustomers: Customer[] = (customersResp || []).map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          email: c.email,
+          phone: c.phone || '',
+          address: c.address || '',
+          createdAt: c.created_at ? new Date(c.created_at) : new Date(),
         }));
-        setProducts(normalized as Product[]);
-      } catch (err) {
-        setProducts(JSON.parse(savedProducts));
-      }
-    }
-    // If inventory-products not found, try migrating legacy 'produtos'
-    if (!savedProducts && legacyProducts) {
-      try {
-        const parsed = JSON.parse(legacyProducts) as any[];
-        const normalized = parsed.map(p => ({
-          ...p,
-          createdAt: p.createdAt ? new Date(p.createdAt) : new Date(),
-          serialNumbers: Array.isArray(p.serialNumbers)
-            ? p.serialNumbers
-            : typeof p.serialNumbers === 'string'
-              ? (p.serialNumbers as string).split(';').map((s: string) => s.trim()).filter((s: string) => s)
-              : p.serialNumbers || [],
+        const mappedCompanies: Company[] = (companiesResp || []).map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          email: c.email || '',
+          phone: c.phone || '',
+          address: c.address || '',
+          createdAt: c.created_at ? new Date(c.created_at) : new Date(),
         }));
-        setProducts(normalized as Product[]);
-        // also write it back to new key to ensure future loads are from inventory-*
-        try { localStorage.setItem('inventory-products', JSON.stringify(normalized)); } catch (e) {}
+        setProducts(mappedProducts);
+        setCustomers(mappedCustomers);
+        setCompanies(mappedCompanies);
       } catch (err) {
-        setProducts(JSON.parse(legacyProducts));
-      }
-    }
-    if (savedCustomers) {
-      try {
-        const parsed = JSON.parse(savedCustomers) as any[];
-        const normalized = parsed.map(c => ({ ...c, createdAt: c.createdAt ? new Date(c.createdAt) : new Date() }));
-        setCustomers(normalized as Customer[]);
-      } catch (err) {
-        setCustomers(JSON.parse(savedCustomers));
-      }
-    }
-    // If inventory-customers not found, try migrating legacy 'clientes'
-    if (!savedCustomers && legacyCustomers) {
-      try {
-        const parsed = JSON.parse(legacyCustomers) as any[];
-        const normalized = parsed.map(c => ({ ...c, createdAt: c.createdAt ? new Date(c.createdAt) : new Date() }));
-        setCustomers(normalized as Customer[]);
-        try { localStorage.setItem('inventory-customers', JSON.stringify(normalized)); } catch (e) {}
-      } catch (err) {
-        setCustomers(JSON.parse(legacyCustomers));
-      }
-    }
-    if (savedCompanies) {
-      try {
-        const parsed = JSON.parse(savedCompanies) as any[];
-        const normalized = parsed.map(c => ({ ...c, createdAt: c.createdAt ? new Date(c.createdAt) : new Date() }));
-        setCompanies(normalized as Company[]);
-      } catch (err) {
-        setCompanies(JSON.parse(savedCompanies));
-      }
-    }
-    // load accessories
-    if (savedAccessories) {
-      try {
-        const parsed = JSON.parse(savedAccessories) as any[];
-        const normalized = parsed.map(a => ({
-          ...a,
-          createdAt: a.createdAt ? new Date(a.createdAt) : new Date(),
-          serialNumbers: Array.isArray(a.serialNumbers)
-            ? a.serialNumbers
-            : typeof a.serialNumbers === 'string'
-              ? (a.serialNumbers as string).split(';').map((s: string) => s.trim()).filter((s: string) => s)
-              : a.serialNumbers || [],
-        }));
-        setAccessories(normalized);
-      } catch (err) {
-        setAccessories(JSON.parse(savedAccessories));
-      }
-    }
-    // If inventory-companies not found, try migrating legacy 'empresas'
-    if (!savedCompanies && legacyCompanies) {
-      try {
-        const parsed = JSON.parse(legacyCompanies) as any[];
-        const normalized = parsed.map(c => ({ ...c, createdAt: c.createdAt ? new Date(c.createdAt) : new Date() }));
-        setCompanies(normalized as Company[]);
-        try { localStorage.setItem('inventory-companies', JSON.stringify(normalized)); } catch (e) {}
-      } catch (err) {
-        setCompanies(JSON.parse(legacyCompanies));
-      }
-    }
-    if (savedCustomerProducts) {
-      try {
-        const parsed = JSON.parse(savedCustomerProducts) as any[];
-        const normalized = parsed.map(cp => ({
-          ...cp,
-          assignedAt: cp.assignedAt ? new Date(cp.assignedAt) : new Date(),
-          serialNumbers: Array.isArray(cp.serialNumbers)
-            ? cp.serialNumbers
-            : typeof cp.serialNumbers === 'string'
-              ? (cp.serialNumbers as string).split(';').map((s: string) => s.trim()).filter((s: string) => s)
-              : cp.serialNumbers || [],
-        }));
-        setCustomerProducts(normalized as CustomerProduct[]);
-      } catch (err) {
-        setCustomerProducts(JSON.parse(savedCustomerProducts));
-      }
-    }
-    if (savedCustomerAccessories) {
-      try {
-        const parsed = JSON.parse(savedCustomerAccessories) as any[];
-        const normalized = parsed.map(ca => ({
-          ...ca,
-          assignedAt: ca.assignedAt ? new Date(ca.assignedAt) : new Date(),
-          serialNumbers: Array.isArray(ca.serialNumbers)
-            ? ca.serialNumbers
-            : typeof ca.serialNumbers === 'string'
-              ? (ca.serialNumbers as string).split(';').map((s: string) => s.trim()).filter((s: string) => s)
-              : ca.serialNumbers || [],
-        }));
-        setCustomerAccessories(normalized as CustomerAccessory[]);
-      } catch (err) {
-        setCustomerAccessories(JSON.parse(savedCustomerAccessories));
-      }
-    }
-  const savedMaintenance = localStorage.getItem('inventory-maintenance-items');
-  if (savedMaintenance) {
-      try {
-        const parsed = JSON.parse(savedMaintenance) as any[];
-        const normalized = parsed.map(m => ({
-          ...m,
-          createdAt: m.createdAt ? new Date(m.createdAt) : new Date(),
-          serialNumbers: Array.isArray(m.serialNumbers)
-            ? m.serialNumbers
-            : typeof m.serialNumbers === 'string'
-              ? (m.serialNumbers as string).split(';').map((s: string) => s.trim()).filter((s: string) => s)
-              : m.serialNumbers || [],
-        }));
-        setMaintenanceItems(normalized as MaintenanceItem[]);
-      } catch (err) {
-        setMaintenanceItems(JSON.parse(savedMaintenance));
-      }
-    }
-    console.debug('[useInventory] loaded from localStorage', {
-      products: (savedProducts ? JSON.parse(savedProducts) : []).length,
-      customers: (savedCustomers ? JSON.parse(savedCustomers) : []).length,
-      companies: (savedCompanies ? JSON.parse(savedCompanies) : []).length,
-      customerProducts: (savedCustomerProducts ? JSON.parse(savedCustomerProducts) : []).length,
-      maintenance: (savedMaintenance ? JSON.parse(savedMaintenance) : []).length,
-      accessories: (savedAccessories ? JSON.parse(savedAccessories) : []).length,
-      customerAccessories: (savedCustomerAccessories ? JSON.parse(savedCustomerAccessories) : []).length,
-    });
-    // mark initialization complete so subsequent state changes are saved
-    setTimeout(() => { initializedRef.current = true; }, 0);
-  }, []);
-
-  // Save to localStorage whenever state changes
-  useEffect(() => {
-    if (!initializedRef.current) return;
-    console.debug('[useInventory] saving products', products.length);
-    const json = JSON.stringify(products);
-    localStorage.setItem('inventory-products', json);
-    // mirror to legacy key for compatibility with csvUtils
-    try { localStorage.setItem('produtos', json); } catch (e) {}
-    // optionally push to remote
-    (async () => {
-      if (!REMOTE_SYNC_ENABLED) return;
-      try {
-        const mod = await import('../lib/supabase');
-        const supabase = mod.supabase;
-        // upsert products into remote table
-        const payload = products.map(p => ({ id: p.id, name: p.name, description: p.description, price: p.price, stock: p.stock, category: p.category, brand: (p as any).brand || null, created_at: p.createdAt.toISOString() }));
-        await supabase.from('products').upsert(payload);
-        console.debug('[useInventory] pushed products to remote');
-      } catch (err) {
-        console.warn('[useInventory] failed pushing products remote', err);
+        console.error('[useInventory] failed to load from API', err);
+      } finally {
+        initializedRef.current = true;
       }
     })();
+  }, []);
+
+  // No persistence: state changes are in-memory only
+  useEffect(() => {
+    if (!initializedRef.current) return;
   }, [products]);
 
   useEffect(() => {
     if (!initializedRef.current) return;
-    console.debug('[useInventory] saving companies', companies.length);
-    const json = JSON.stringify(companies);
-    localStorage.setItem('inventory-companies', json);
-    // mirror to legacy 'empresas' key if present in other tools
-    try { localStorage.setItem('empresas', json); } catch (e) {}
-    // optionally push companies to remote
-    (async () => {
-      if (!REMOTE_SYNC_ENABLED) return;
-      try {
-        const mod = await import('../lib/supabase');
-        const supabase = mod.supabase;
-        const payload = companies.map(c => ({ id: c.id, name: c.name, email: c.email || undefined, phone: c.phone || undefined, address: c.address || undefined, created_at: c.createdAt.toISOString() }));
-        await supabase.from('companies').upsert(payload);
-        console.debug('[useInventory] pushed companies to remote');
-      } catch (err) {
-        console.warn('[useInventory] failed pushing companies remote', err);
-      }
-    })();
   }, [companies]);
 
   useEffect(() => {
     if (!initializedRef.current) return;
-    console.debug('[useInventory] saving accessories', accessories.length);
-    const json = JSON.stringify(accessories);
-    localStorage.setItem('inventory-accessories', json);
-    // mirror legacy key 'acessorios' for older tools (best-effort)
-    try { localStorage.setItem('acessorios', json); } catch (e) {}
-    (async () => {
-      if (!REMOTE_SYNC_ENABLED) return;
-      try {
-        const mod = await import('../lib/supabase');
-        const supabase = mod.supabase;
-        const payload = accessories.map(a => ({ id: a.id, name: a.name, description: a.description || undefined, price: a.price || 0, stock: a.stock || 0, brand: (a as any).brand || undefined, serial_numbers: Array.isArray((a as any).serialNumbers) ? (a as any).serialNumbers : undefined, created_at: a.createdAt.toISOString() }));
-        await supabase.from('accessories').upsert(payload);
-        console.debug('[useInventory] pushed accessories to remote');
-      } catch (err) {
-        console.warn('[useInventory] failed pushing accessories remote', err);
-      }
-    })();
   }, [accessories]);
 
   useEffect(() => {
     if (!initializedRef.current) return;
-    console.debug('[useInventory] saving customerAccessories', customerAccessories.length);
-    const json = JSON.stringify(customerAccessories);
-    localStorage.setItem('inventory-customer-accessories', json);
   }, [customerAccessories]);
 
   useEffect(() => {
     if (!initializedRef.current) return;
-    console.debug('[useInventory] saving customers', customers.length);
-    const json = JSON.stringify(customers);
-    localStorage.setItem('inventory-customers', json);
-    try { localStorage.setItem('clientes', json); } catch (e) {}
-    (async () => {
-      if (!REMOTE_SYNC_ENABLED) return;
-      try {
-        const mod = await import('../lib/supabase');
-        const supabase = mod.supabase;
-  const payload = customers.map(c => ({ id: c.id, name: c.name, email: c.email, phone: c.phone || undefined, address: c.address || undefined, created_at: c.createdAt.toISOString() }));
-        await supabase.from('customers').upsert(payload);
-        console.debug('[useInventory] pushed customers to remote');
-      } catch (err) {
-        console.warn('[useInventory] failed pushing customers remote', err);
-      }
-    })();
   }, [customers]);
 
   useEffect(() => {
     if (!initializedRef.current) return;
-    console.debug('[useInventory] saving customerProducts', customerProducts.length);
-    const json = JSON.stringify(customerProducts);
-    localStorage.setItem('inventory-customer-products', json);
-    (async () => {
-      if (!REMOTE_SYNC_ENABLED) return;
-      try {
-        const mod = await import('../lib/supabase');
-        const supabase = mod.supabase;
-  const payload = customerProducts.map(cp => ({ id: cp.id, customer_id: cp.customerId, product_id: cp.productId, quantity: cp.quantity, assigned_at: cp.assignedAt.toISOString() }));
-        await supabase.from('customer_products').upsert(payload);
-        console.debug('[useInventory] pushed customerProducts to remote');
-      } catch (err) {
-        console.warn('[useInventory] failed pushing customerProducts remote', err);
-      }
-    })();
   }, [customerProducts]);
 
   useEffect(() => {
     if (!initializedRef.current) return;
-    console.debug('[useInventory] saving maintenanceItems', maintenanceItems.length);
-    const json = JSON.stringify(maintenanceItems);
-    localStorage.setItem('inventory-maintenance-items', json);
-    (async () => {
-      if (!REMOTE_SYNC_ENABLED) return;
-      try {
-        const mod = await import('../lib/supabase');
-        const supabase = mod.supabase;
-        const payload = maintenanceItems.map(m => ({ id: m.id, original_product_id: m.originalProductId || undefined, name: m.name, description: m.description || undefined, price: m.price || undefined, stock: m.stock || 0, brand: m.brand || undefined, serial_numbers: Array.isArray((m as any).serialNumbers) ? (m as any).serialNumbers : undefined, company_id: m.companyId || undefined, created_at: m.createdAt.toISOString() }));
-        await supabase.from('maintenance_items').upsert(payload);
-        console.debug('[useInventory] pushed maintenance items to remote');
-      } catch (err) {
-        console.warn('[useInventory] failed pushing maintenance remote', err);
-      }
-    })();
   }, [maintenanceItems]);
 
   useEffect(() => {
     if (!initializedRef.current) return;
-    console.debug('[useInventory] saving customerAccessories', customerAccessories.length);
-    const json = JSON.stringify(customerAccessories);
-    localStorage.setItem('inventory-customer-accessories', json);
-    (async () => {
-      if (!REMOTE_SYNC_ENABLED) return;
-      try {
-        const mod = await import('../lib/supabase');
-        const supabase = mod.supabase;
-        const payload = customerAccessories.map(ca => ({ id: ca.id, customer_id: ca.customerId, accessory_id: ca.accessoryId, quantity: ca.quantity, serial_numbers: Array.isArray(ca.serialNumbers) ? ca.serialNumbers : undefined, assigned_at: ca.assignedAt.toISOString() }));
-        await supabase.from('customer_accessories').upsert(payload);
-        console.debug('[useInventory] pushed customer accessories to remote');
-      } catch (err) {
-        console.warn('[useInventory] failed pushing customer accessories remote', err);
-      }
-    })();
   }, [customerAccessories]);
 
-  const addProduct = (product: Omit<Product, 'id' | 'createdAt'>) => {
-    const newProduct: Product = {
-      ...product,
-      id: Date.now().toString(),
-      createdAt: new Date(),
+  const addProduct = async (product: Omit<Product, 'id' | 'createdAt'>) => {
+    const payload = {
+      name: product.name,
+      description: product.description || '',
+      price: product.price || 0,
+      stock: product.stock || 0,
+      category: product.category || '',
+      brand: (product as any).brand || null,
+      serial_numbers: Array.isArray((product as any).serialNumbers) ? (product as any).serialNumbers : [],
     };
-    setProducts(prev => [...prev, newProduct]);
+    const res = await api.post('/products', payload);
+    const mapped: Product = {
+      id: res.id,
+      name: res.name,
+      description: res.description || '',
+      price: typeof res.price === 'number' ? res.price : Number(res.price || 0),
+      stock: typeof res.stock === 'number' ? res.stock : Number(res.stock || 0),
+      category: res.category || '',
+      brand: res.brand || undefined,
+      serialNumbers: Array.isArray(res.serial_numbers) ? res.serial_numbers : [],
+      createdAt: res.created_at ? new Date(res.created_at) : new Date(),
+    };
+    setProducts(prev => [mapped, ...prev]);
+    return mapped;
   };
 
   // Accessories CRUD
@@ -542,13 +233,31 @@ export function useInventory() {
     setAccessories(prev => prev.filter(a => a.id !== id));
   };
 
-  const updateProduct = (id: string, updates: Partial<Product>) => {
-    setProducts(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+  const updateProduct = async (id: string, updates: Partial<Product>) => {
+    const payload: any = { ...updates };
+    if ('serialNumbers' in payload) {
+      payload.serial_numbers = payload.serialNumbers;
+      delete payload.serialNumbers;
+    }
+    const res = await api.put(`/products/${id}`, payload);
+    const mapped: Product = {
+      id: res.id,
+      name: res.name,
+      description: res.description || '',
+      price: typeof res.price === 'number' ? res.price : Number(res.price || 0),
+      stock: typeof res.stock === 'number' ? res.stock : Number(res.stock || 0),
+      category: res.category || '',
+      brand: res.brand || undefined,
+      serialNumbers: Array.isArray(res.serial_numbers) ? res.serial_numbers : [],
+      createdAt: res.created_at ? new Date(res.created_at) : new Date(),
+    };
+    setProducts(prev => prev.map(p => p.id === id ? mapped : p));
+    return mapped;
   };
 
-  const deleteProduct = (id: string) => {
+  const deleteProduct = async (id: string) => {
+    await api.del(`/products/${id}`);
     setProducts(prev => prev.filter(p => p.id !== id));
-    // Also remove any customer associations
     setCustomerProducts(prev => prev.filter(cp => cp.productId !== id));
   };
 
@@ -637,35 +346,42 @@ export function useInventory() {
     setMaintenanceItems(prev => prev.filter(x => x.id !== maintenanceId));
   };
 
-  const addCustomer = (customer: Omit<Customer, 'id' | 'createdAt'>) => {
-    const newCustomer: Customer = {
-      ...customer,
-      id: Date.now().toString(),
-      createdAt: new Date(),
-    };
-    setCustomers(prev => [...prev, newCustomer]);
+  const addCustomer = async (customer: Omit<Customer, 'id' | 'createdAt'>) => {
+    const res = await api.post('/customers', customer);
+    const mapped: Customer = { id: res.id, name: res.name, email: res.email, phone: res.phone || '', address: res.address || '', createdAt: res.created_at ? new Date(res.created_at) : new Date() };
+    setCustomers(prev => [mapped, ...prev]);
+    return mapped;
   };
 
-  const addCompany = (company: Omit<Company, 'id' | 'createdAt'>) => {
-    const newCompany: Company = { ...company, id: Date.now().toString(), createdAt: new Date() };
-    setCompanies(prev => [...prev, newCompany]);
+  const addCompany = async (company: Omit<Company, 'id' | 'createdAt'>) => {
+    const res = await api.post('/companies', company);
+    const mapped: Company = { id: res.id, name: res.name, email: res.email || '', phone: res.phone || '', address: res.address || '', createdAt: res.created_at ? new Date(res.created_at) : new Date() };
+    setCompanies(prev => [mapped, ...prev]);
+    return mapped;
   };
 
-  const updateCompany = (id: string, updates: Partial<Company>) => {
-    setCompanies(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
+  const updateCompany = async (id: string, updates: Partial<Company>) => {
+    const res = await api.put(`/companies/${id}`, updates);
+    const mapped: Company = { id: res.id, name: res.name, email: res.email || '', phone: res.phone || '', address: res.address || '', createdAt: res.created_at ? new Date(res.created_at) : new Date() };
+    setCompanies(prev => prev.map(c => c.id === id ? mapped : c));
+    return mapped;
   };
 
-  const deleteCompany = (id: string) => {
+  const deleteCompany = async (id: string) => {
+    await api.del(`/companies/${id}`);
     setCompanies(prev => prev.filter(c => c.id !== id));
   };
 
-  const updateCustomer = (id: string, updates: Partial<Customer>) => {
-    setCustomers(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
+  const updateCustomer = async (id: string, updates: Partial<Customer>) => {
+    const res = await api.put(`/customers/${id}`, updates);
+    const mapped: Customer = { id: res.id, name: res.name, email: res.email, phone: res.phone || '', address: res.address || '', createdAt: res.created_at ? new Date(res.created_at) : new Date() };
+    setCustomers(prev => prev.map(c => c.id === id ? mapped : c));
+    return mapped;
   };
 
-  const deleteCustomer = (id: string) => {
+  const deleteCustomer = async (id: string) => {
+    await api.del(`/customers/${id}`);
     setCustomers(prev => prev.filter(c => c.id !== id));
-    // Also remove any product associations
     setCustomerProducts(prev => prev.filter(cp => cp.customerId !== id));
   };
 
