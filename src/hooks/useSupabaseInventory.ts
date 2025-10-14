@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { supabase, Product, Customer, CustomerProduct, ProductInsert, CustomerInsert, CustomerProductInsert } from '../lib/supabase';
+import { api } from '../lib/api';
+import { Product, Customer, CustomerProduct, ProductInsert, CustomerInsert, CustomerProductInsert } from '../lib/supabase';
 
 export function useSupabaseInventory() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -19,18 +20,14 @@ export function useSupabaseInventory() {
       setError(null);
 
       const [productsResult, customersResult, customerProductsResult] = await Promise.all([
-        supabase.from('products').select('*').order('created_at', { ascending: false }),
-        supabase.from('customers').select('*').order('created_at', { ascending: false }),
-        supabase.from('customer_products').select('*').order('assigned_at', { ascending: false })
+        api.get('/products'),
+        api.get('/customers'),
+        api.get('/customer_products')
       ]);
 
-      if (productsResult.error) throw productsResult.error;
-      if (customersResult.error) throw customersResult.error;
-      if (customerProductsResult.error) throw customerProductsResult.error;
-
-      setProducts(productsResult.data || []);
-      setCustomers(customersResult.data || []);
-      setCustomerProducts(customerProductsResult.data || []);
+      setProducts(productsResult || []);
+      setCustomers(customersResult || []);
+      setCustomerProducts(customerProductsResult || []);
     } catch (err) {
       console.error('Erro ao carregar dados:', err);
       setError(err instanceof Error ? err.message : 'Erro desconhecido');
@@ -43,14 +40,7 @@ export function useSupabaseInventory() {
   const addProduct = async (productData: Omit<ProductInsert, 'id' | 'created_at' | 'updated_at'>) => {
     try {
       setError(null);
-      const { data, error } = await supabase
-        .from('products')
-        .insert([productData])
-        .select()
-        .single();
-
-      if (error) throw error;
-      
+      const data = await api.post('/products', productData);
       setProducts(prev => [data, ...prev]);
       return data;
     } catch (err) {
@@ -63,15 +53,7 @@ export function useSupabaseInventory() {
   const updateProduct = async (id: string, updates: Partial<ProductInsert>) => {
     try {
       setError(null);
-      const { data, error } = await supabase
-        .from('products')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-
+      const data = await api.put(`/products/${id}`, updates);
       setProducts(prev => prev.map(p => p.id === id ? data : p));
       return data;
     } catch (err) {
@@ -84,13 +66,7 @@ export function useSupabaseInventory() {
   const deleteProduct = async (id: string) => {
     try {
       setError(null);
-      const { error } = await supabase
-        .from('products')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
+      await api.del(`/products/${id}`);
       setProducts(prev => prev.filter(p => p.id !== id));
       setCustomerProducts(prev => prev.filter(cp => cp.product_id !== id));
     } catch (err) {
@@ -104,14 +80,7 @@ export function useSupabaseInventory() {
   const addCustomer = async (customerData: Omit<CustomerInsert, 'id' | 'created_at' | 'updated_at'>) => {
     try {
       setError(null);
-      const { data, error } = await supabase
-        .from('customers')
-        .insert([customerData])
-        .select()
-        .single();
-
-      if (error) throw error;
-
+      const data = await api.post('/customers', customerData);
       setCustomers(prev => [data, ...prev]);
       return data;
     } catch (err) {
@@ -124,15 +93,7 @@ export function useSupabaseInventory() {
   const updateCustomer = async (id: string, updates: Partial<CustomerInsert>) => {
     try {
       setError(null);
-      const { data, error } = await supabase
-        .from('customers')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) throw error;
-
+      const data = await api.put(`/customers/${id}`, updates);
       setCustomers(prev => prev.map(c => c.id === id ? data : c));
       return data;
     } catch (err) {
@@ -145,13 +106,7 @@ export function useSupabaseInventory() {
   const deleteCustomer = async (id: string) => {
     try {
       setError(null);
-      const { error } = await supabase
-        .from('customers')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
+      await api.del(`/customers/${id}`);
       setCustomers(prev => prev.filter(c => c.id !== id));
       setCustomerProducts(prev => prev.filter(cp => cp.customer_id !== id));
     } catch (err) {
@@ -167,38 +122,15 @@ export function useSupabaseInventory() {
       setError(null);
 
       // Verificar se já existe uma associação
-      const { data: existingAssignment } = await supabase
-        .from('customer_products')
-        .select('*')
-        .eq('customer_id', customerId)
-        .eq('product_id', productId)
-        .single();
-
-      if (existingAssignment) {
-        // Atualizar quantidade existente
-        const { data, error } = await supabase
-          .from('customer_products')
-          .update({ quantity: existingAssignment.quantity + quantity })
-          .eq('id', existingAssignment.id)
-          .select()
-          .single();
-
-        if (error) throw error;
-
-        setCustomerProducts(prev => 
-          prev.map(cp => cp.id === existingAssignment.id ? data : cp)
-        );
+      // check existing via API and create/update
+      const cps = await api.get(`/customer_products?customer_id=${customerId}&product_id=${productId}`);
+      if (Array.isArray(cps) && cps.length > 0) {
+        const existing = cps[0];
+        const updated = await api.post('/customer_products', { customer_id: customerId, product_id: productId, quantity });
+        setCustomerProducts(prev => prev.map(cp => cp.id === existing.id ? updated : cp));
       } else {
-        // Criar nova associação
-        const { data, error } = await supabase
-          .from('customer_products')
-          .insert([{ customer_id: customerId, product_id: productId, quantity }])
-          .select()
-          .single();
-
-        if (error) throw error;
-
-        setCustomerProducts(prev => [data, ...prev]);
+        const created = await api.post('/customer_products', { customer_id: customerId, product_id: productId, quantity });
+        setCustomerProducts(prev => [created, ...prev]);
       }
 
       // Atualizar estoque do produto
@@ -221,13 +153,7 @@ export function useSupabaseInventory() {
       const assignment = customerProducts.find(cp => cp.id === customerProductId);
       if (!assignment) throw new Error('Associação não encontrada');
 
-      const { error } = await supabase
-        .from('customer_products')
-        .delete()
-        .eq('id', customerProductId);
-
-      if (error) throw error;
-
+      await api.del(`/customer_products/${customerProductId}`);
       // Retornar estoque ao produto
       const product = products.find(p => p.id === assignment.product_id);
       if (product) {

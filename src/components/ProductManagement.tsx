@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { Plus, Edit, Trash2, Package } from 'lucide-react';
+import ConfirmModal from './ConfirmModal';
 import { Product } from '../types';
 
 interface ProductManagementProps {
   products: Product[];
-  setProducts: React.Dispatch<React.SetStateAction<Product[]>>;
+  onAddProduct: (product: Omit<Product, 'id' | 'createdAt'>) => void;
+  onUpdateProduct: (id: string, updates: Partial<Product>) => void;
+  onDeleteProduct: (id: string) => void;
 }
-
-export function ProductManagement({ products, setProducts }: ProductManagementProps) {
+export function ProductManagement({ products, onAddProduct, onUpdateProduct, onDeleteProduct }: ProductManagementProps) {
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [formData, setFormData] = useState({
@@ -16,7 +18,10 @@ export function ProductManagement({ products, setProducts }: ProductManagementPr
     price: 0,
     stock: 0,
     category: '',
+    brand: '',
+    serialNumbers: [] as string[],
   });
+  const [formError, setFormError] = useState<string | null>(null);
 
   const resetForm = () => {
     setFormData({
@@ -25,9 +30,12 @@ export function ProductManagement({ products, setProducts }: ProductManagementPr
       price: 0,
       stock: 0,
       category: '',
+      brand: '',
+      serialNumbers: [],
     });
     setEditingProduct(null);
     setShowForm(false);
+    setFormError(null);
   };
 
   function generateId() {
@@ -36,35 +44,81 @@ export function ProductManagement({ products, setProducts }: ProductManagementPr
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingProduct) {
-      setProducts(products.map(p => p.id === editingProduct.id ? { ...p, ...formData } : p));
-    } else {
-      const newProduct = { ...formData, id: generateId(), createdAt: new Date() };
-      setProducts([...products, newProduct]);
+    // validação: quantidade deve ser igual ao número de números de série
+    if (formData.stock !== formData.serialNumbers.length) {
+      setFormError(`A quantidade (${formData.stock}) deve ser igual ao número de números de série (${formData.serialNumbers.length}).`);
+      return;
     }
-    resetForm();
+
+    // Prepare confirmation before executing add/update
+    const exec = () => {
+      if (editingProduct) {
+        onUpdateProduct(editingProduct.id, formData);
+      } else {
+        onAddProduct(formData);
+      }
+      resetForm();
+    };
+
+    setConfirm({ open: true, title: editingProduct ? 'Confirmar atualização' : 'Confirmar criação', description: editingProduct ? 'Confirma atualizar este produto?' : 'Confirma criar este produto?', onConfirm: exec });
   };
 
   const handleEdit = (product: Product) => {
     setEditingProduct(product);
+    // normaliza serialNumbers que podem vir como string (ex: "a;b;c") ou array
+    const rawSerials = (product as any).serialNumbers;
+    const serials = Array.isArray(rawSerials)
+      ? rawSerials
+      : typeof rawSerials === 'string'
+        ? rawSerials.split(';').map((s: string) => s.trim()).filter((s: string) => s)
+        : [];
+
     setFormData({
       name: product.name,
       description: product.description,
       price: product.price,
       stock: product.stock,
       category: product.category,
+      brand: (product as any).brand || '',
+      serialNumbers: serials,
     });
     setShowForm(true);
   };
 
-  const handleDelete = (id: string) => {
-    setProducts(products.filter(p => p.id !== id));
+  const [detailProductId, setDetailProductId] = useState<string | null>(null);
+
+  const addSerial = (serial: string) => {
+    if (!serial) return;
+    setFormData(prev => ({ ...prev, serialNumbers: [...prev.serialNumbers, serial] }));
+    setFormError(null);
   };
 
+  const removeSerialAt = (index: number) => {
+    setFormData(prev => ({ ...prev, serialNumbers: prev.serialNumbers.filter((_, i) => i !== index) }));
+    setFormError(null);
+  };
+
+  const handleDelete = (id: string) => {
+    // open confirm modal instead
+    setDeleteTarget(id);
+  };
+
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+
+  const confirmDelete = () => {
+    if (deleteTarget) onDeleteProduct(deleteTarget);
+    setDeleteTarget(null);
+  };
+
+  const cancelDelete = () => setDeleteTarget(null);
+  // confirm state for create/update actions
+  const [confirm, setConfirm] = useState<{ open: boolean; title?: string; description?: string; onConfirm?: () => void }>({ open: false });
+
   return (
+    <>
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">Gestão de Produtos</h2>
+        <h2 className="text-2xl font-bold text-gray-900">Estoque</h2>
         <button
           onClick={() => setShowForm(true)}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
@@ -140,10 +194,67 @@ export function ProductManagement({ products, setProducts }: ProductManagementPr
                 required
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Marca</label>
+              <input
+                type="text"
+                value={formData.brand}
+                onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Números de Série</label>
+              <div className="mb-2">
+                <div className="flex space-x-2">
+                  <input
+                    type="text"
+                    placeholder="Adicionar número de série"
+                    id="serial-input"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const el = e.target as HTMLInputElement;
+                        addSerial(el.value.trim());
+                        el.value = '';
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const el = document.getElementById('serial-input') as HTMLInputElement | null;
+                      if (el) { addSerial(el.value.trim()); el.value = ''; }
+                    }}
+                    className="bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                  >Adicionar</button>
+                </div>
+              </div>
+              <div className="space-y-1">
+                {formData.serialNumbers.map((s, i) => (
+                  <div key={i} className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                    <span className="text-sm">{s}</span>
+                    <button type="button" onClick={() => removeSerialAt(i)} className="text-red-600 text-sm">Remover</button>
+                  </div>
+                ))}
+                {formData.serialNumbers.length === 0 && (
+                  <p className="text-xs text-gray-500">Adicione números de série individuais. Se cadastrar 10 unidades, cadastre 10 seriais.</p>
+                )}
+              </div>
+            </div>
+            {/* helper mostrando comparação entre estoque e seriais */}
+            <div className="md:col-span-2">
+              <p className={`text-sm mb-2 ${formData.stock === formData.serialNumbers.length ? 'text-green-600' : 'text-red-600'}`}>
+                Quantidade: {formData.stock} — Seriais cadastrados: {formData.serialNumbers.length} {formData.stock === formData.serialNumbers.length ? '✓' : ' (devem ser iguais)'}
+              </p>
+              {formError && <p className="text-sm text-red-600 mb-2">{formError}</p>}
+            </div>
             <div className="md:col-span-2 flex space-x-4">
               <button
                 type="submit"
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={formData.stock !== formData.serialNumbers.length}
               >
                 {editingProduct ? 'Atualizar' : 'Criar'} Produto
               </button>
@@ -193,7 +304,7 @@ export function ProductManagement({ products, setProducts }: ProductManagementPr
               </div>
             </div>
 
-            <div className="flex space-x-2">
+            <div className="flex space-x-2 mb-3">
               <button
                 onClick={() => handleEdit(product)}
                 className="flex-1 bg-blue-50 text-blue-600 px-3 py-2 rounded-lg hover:bg-blue-100 transition-colors flex items-center justify-center space-x-2"
@@ -208,7 +319,41 @@ export function ProductManagement({ products, setProducts }: ProductManagementPr
                 <Trash2 className="h-4 w-4" />
                 <span>Excluir</span>
               </button>
+              <button
+                onClick={() => setDetailProductId(detailProductId === product.id ? null : product.id)}
+                className="flex-1 bg-gray-50 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors flex items-center justify-center space-x-2"
+              >
+                <span>Ver Detalhes</span>
+              </button>
             </div>
+            {detailProductId === product.id && (() => {
+              // normaliza serialNumbers para exibição
+              const rawSerials = (product as any).serialNumbers;
+              const serialList: string[] = Array.isArray(rawSerials)
+                ? rawSerials
+                : typeof rawSerials === 'string'
+                  ? rawSerials.split(';').map((s: string) => s.trim()).filter((s: string) => s)
+                  : [];
+
+              return (
+                <div className="mt-3 bg-gray-50 p-3 rounded-lg border border-gray-100">
+                  <h4 className="font-medium text-gray-900 mb-2">Detalhes do Grupo</h4>
+                  <p className="text-sm text-gray-600 mb-2"><span className="font-medium">Marca:</span> {(product as any).brand || '-'}</p>
+                  <div>
+                    <h5 className="text-sm font-medium text-gray-800 mb-1">Números de Série</h5>
+                    {serialList.length > 0 ? (
+                      <ul className="list-disc list-inside text-sm text-gray-700">
+                        {serialList.map((s: string, i: number) => (
+                          <li key={i}>{s}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-xs text-gray-500">Nenhum número de série cadastrado para este grupo.</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         ))}
 
@@ -227,5 +372,10 @@ export function ProductManagement({ products, setProducts }: ProductManagementPr
         )}
       </div>
     </div>
+    <ConfirmModal open={!!deleteTarget} title="Excluir produto" description="Tem certeza que deseja excluir este produto? Esta ação removerá o produto e todas as suas associações." onConfirm={confirmDelete} onCancel={cancelDelete} />
+    {confirm.open && (
+      <ConfirmModal open={confirm.open} title={confirm.title} description={confirm.description} onConfirm={() => { confirm.onConfirm && confirm.onConfirm(); setConfirm({ open: false }); }} onCancel={() => setConfirm({ open: false })} />
+    )}
+    </>
   );
 }

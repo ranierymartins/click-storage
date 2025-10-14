@@ -1,5 +1,5 @@
 import React from 'react';
-import { Package, Users, BarChart3, Settings } from 'lucide-react';
+import { Package, Users, BarChart3, Settings, Wrench, Home, HomeIcon } from 'lucide-react';
 
 interface NavigationProps {
   activeTab: string;
@@ -10,7 +10,10 @@ const tabs = [
   { id: 'dashboard', name: 'Dashboard', icon: BarChart3 },
   { id: 'products', name: 'Produtos', icon: Package },
   { id: 'customers', name: 'Clientes', icon: Users },
+  { id: 'maintenance', name: 'Manutenção', icon: Wrench },
+  { id: 'companies', name: 'Empresas', icon: Home },
   { id: 'reports', name: 'Relatórios', icon: BarChart3 },
+  { id: 'acessories', name: 'Acessorios', icon: HomeIcon },
 ];
 
 export function Navigation({ activeTab, setActiveTab }: NavigationProps) {
@@ -18,8 +21,8 @@ export function Navigation({ activeTab, setActiveTab }: NavigationProps) {
     <nav className="bg-gray-900 text-white h-screen w-64 fixed left-0 top-0 overflow-y-auto">
       <div className="p-6">
         <div className="flex items-center space-x-2 mb-8">
-          <Package className="h-8 w-8 text-blue-400" />
-          <h1 className="text-xl font-bold">Sistema Inventário</h1>
+          <img src="src\img\clicklaudos_logo.jpeg" alt="Logo" className="h-8 w-8"/>
+          <h1 className="text-xl font-bold">Click Store</h1>
         </div>
         
         <ul className="space-y-2">

@@ -3,21 +3,36 @@ import { Customer, Product } from '../types';
 
 // Salva clientes permanentemente no localStorage
 export function saveCustomersToStorage(customers: Customer[]) {
-  localStorage.setItem('clientes', JSON.stringify(customers));
+  const serialized = JSON.stringify(customers);
+  localStorage.setItem('clientes', serialized);
+  // Also keep the new inventory key in sync
+  try {
+    localStorage.setItem('inventory-customers', serialized);
+  } catch (e) {
+    // ignore storage errors
+  }
 }
 
 export function loadCustomersFromStorage(): Customer[] {
-  const data = localStorage.getItem('clientes');
+  // Prefer new key, fallback to legacy
+  const data = localStorage.getItem('inventory-customers') || localStorage.getItem('clientes');
   return data ? JSON.parse(data) : [];
 }
 
 // Salva produtos permanentemente no localStorage
 export function saveProductsToStorage(products: Product[]) {
-  localStorage.setItem('produtos', JSON.stringify(products));
+  const serialized = JSON.stringify(products);
+  localStorage.setItem('produtos', serialized);
+  // also keep new inventory key in sync
+  try {
+    localStorage.setItem('inventory-products', serialized);
+  } catch (e) {
+    // ignore storage errors
+  }
 }
 
 export function loadProductsFromStorage(): Product[] {
-  const data = localStorage.getItem('produtos');
+  const data = localStorage.getItem('inventory-products') || localStorage.getItem('produtos');
   return data ? JSON.parse(data) : [];
 }
 
@@ -29,8 +44,12 @@ export function customersToCSV(customers: Customer[]): string {
 }
 
 export function productsToCSV(products: Product[]): string {
-  const header = 'id,name,description,price,stock,category,createdAt';
-  const rows = products.map(p => `${p.id},${p.name},${p.description},${p.price},${p.stock},${p.category},${p.createdAt}`);
+  const header = 'id,name,description,price,stock,category,brand,serialNumbers,createdAt';
+  const rows = products.map(p => {
+    const serials = (p.serialNumbers || []).join(';');
+    const brand = p.brand || '';
+    return `${p.id},${p.name},${p.description},${p.price},${p.stock},${p.category},${brand},${serials},${p.createdAt}`;
+  });
   return [header, ...rows].join('\n');
 }
 
