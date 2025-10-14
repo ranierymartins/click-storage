@@ -5,25 +5,28 @@ import { ProductManagement } from './components/ProductManagement';
 import { CustomerManagement } from './components/CustomerManagement';
 import { Reports } from './components/Reports';
 import { useInventory } from './hooks/useInventory';
-import { loadProductsFromStorage, saveProductsToStorage } from './lib/csvUtils';
+import { useSqliteInventory } from './hooks/useSqliteInventory';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
-  // Estado global para produtos
-  const [products, setProducts] = useState(() => loadProductsFromStorage());
+  // Usar SQLite hook se disponível
+  const sqlite = useSqliteInventory();
+  const [products, setProducts] = useState<any[]>([]);
+
+  // sync products when sqlite ready
+  React.useEffect(() => {
+    if (sqlite.ready) setProducts(sqlite.products as any[]);
+  }, [sqlite.ready, sqlite.products]);
+
   const {
     customers,
     customerProducts,
-    addCustomer,
+    createCustomer: addCustomer,
     updateCustomer,
     deleteCustomer,
     assignProductToCustomer,
     removeProductFromCustomer,
-  } = useInventory();
-
-  React.useEffect(() => {
-    saveProductsToStorage(products);
-  }, [products]);
+  } = sqlite as any;
 
   const renderContent = () => {
     switch (activeTab) {
@@ -38,9 +41,11 @@ function App() {
       case 'products':
         return (
           <ProductManagement
-            products={products}
-            setProducts={setProducts}
-          />
+              products={products}
+              onCreateProduct={sqlite.createProduct}
+              onUpdateProduct={sqlite.updateProduct}
+              onDeleteProduct={sqlite.deleteProduct}
+            />
         );
       case 'customers':
         return (

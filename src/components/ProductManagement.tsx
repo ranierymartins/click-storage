@@ -4,10 +4,12 @@ import { Product } from '../types';
 
 interface ProductManagementProps {
   products: Product[];
-  setProducts: React.Dispatch<React.SetStateAction<Product[]>>;
+  onCreateProduct?: (prod: Omit<Product, 'id' | 'createdAt'>) => Product | void;
+  onUpdateProduct?: (id: string, updates: Partial<Product>) => Product | void;
+  onDeleteProduct?: (id: string) => void;
 }
 
-export function ProductManagement({ products, setProducts }: ProductManagementProps) {
+export function ProductManagement({ products, onCreateProduct, onUpdateProduct, onDeleteProduct }: ProductManagementProps) {
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [formData, setFormData] = useState({
@@ -34,13 +36,12 @@ export function ProductManagement({ products, setProducts }: ProductManagementPr
     return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editingProduct) {
-      setProducts(products.map(p => p.id === editingProduct.id ? { ...p, ...formData } : p));
+      await onUpdateProduct?.(editingProduct.id, formData);
     } else {
-      const newProduct = { ...formData, id: generateId(), createdAt: new Date() };
-      setProducts([...products, newProduct]);
+      await onCreateProduct?.(formData);
     }
     resetForm();
   };
@@ -58,7 +59,7 @@ export function ProductManagement({ products, setProducts }: ProductManagementPr
   };
 
   const handleDelete = (id: string) => {
-    setProducts(products.filter(p => p.id !== id));
+    onDeleteProduct?.(id);
   };
 
   return (
