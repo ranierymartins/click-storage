@@ -111,6 +111,35 @@ export interface Database {
           }
         ]
       }
+      product_serial_numbers: {
+        Row: {
+          id: string
+          product_id: string
+          serial_number: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          product_id: string
+          serial_number: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          product_id?: string
+          serial_number?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_serial_numbers_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never

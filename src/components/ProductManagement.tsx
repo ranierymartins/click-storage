@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { Plus, Edit, Trash2, Package } from 'lucide-react';
 import { Product } from '../types';
+import { getDb } from '../lib/sqlite';
 
 interface ProductManagementProps {
   products: Product[];
-  onCreateProduct?: (prod: Omit<Product, 'id' | 'createdAt'>) => Product | void;
-  onUpdateProduct?: (id: string, updates: Partial<Product>) => Product | void;
+  onCreateProduct?: (prod: Omit<Product, 'id' | 'createdAt'> & { serialNumbers: string[] }) => void;
+  onUpdateProduct?: (id: string, updates: Partial<Product>) => void;
   onDeleteProduct?: (id: string) => void;
 }
 
@@ -19,6 +20,7 @@ export function ProductManagement({ products, onCreateProduct, onUpdateProduct, 
     stock: 0,
     category: '',
   });
+  const [serialNumbers, setSerialNumbers] = useState<string[]>([]);
 
   const resetForm = () => {
     setFormData({
@@ -28,25 +30,59 @@ export function ProductManagement({ products, onCreateProduct, onUpdateProduct, 
       stock: 0,
       category: '',
     });
+    setSerialNumbers([]);
     setEditingProduct(null);
     setShowForm(false);
   };
 
-  function generateId() {
-    return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
-  }
+  const handleQuantityChange = (quantity: number) => {
+    setFormData({ ...formData, stock: quantity });
+    const newSerialNumbers = Array.from({ length: quantity }, (_, i) => serialNumbers[i] || '');
+    setSerialNumbers(newSerialNumbers);
+  };
+
+  const handleSerialNumberChange = (index: number, value: string) => {
+    const updatedSerialNumbers = [...serialNumbers];
+    updatedSerialNumbers[index] = value;
+    setSerialNumbers(updatedSerialNumbers);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (serialNumbers.length !== formData.stock) {
+      alert('O número de números de série deve corresponder à quantidade em estoque.');
+      return;
+    }
+    const db = getDb();
     if (editingProduct) {
-      await onUpdateProduct?.(editingProduct.id, formData);
+      db.run(
+        'UPDATE products SET name = ?, description = ?, price = ?, stock = ?, category = ? WHERE id = ?',
+        [formData.name, formData.description, formData.price, formData.stock, formData.category, editingProduct.id]
+      );
+      db.run('DELETE FROM product_serial_numbers WHERE product_id = ?', [editingProduct.id]);
+      serialNumbers.forEach((serial) => {
+        db.run('INSERT INTO product_serial_numbers (product_id, serial_number) VALUES (?, ?)', [editingProduct.id, serial]);
+      });
+      onUpdateProduct?.(editingProduct.id, formData);
     } else {
-      await onCreateProduct?.(formData);
+      const id = Date.now().toString();
+      db.run(
+        'INSERT INTO products (id, name, description, price, stock, category) VALUES (?, ?, ?, ?, ?, ?)',
+        [id, formData.name, formData.description, formData.price, formData.stock, formData.category]
+      );
+      serialNumbers.forEach((serial) => {
+        db.run('INSERT INTO product_serial_numbers (product_id, serial_number) VALUES (?, ?)', [id, serial]);
+      });
+      onCreateProduct?.({ ...formData, id, serialNumbers });
     }
     resetForm();
   };
 
   const handleEdit = (product: Product) => {
+    const db = getDb();
+    const serials = db
+      .exec('SELECT serial_number FROM product_serial_numbers WHERE product_id = ?', [product.id])
+      .flatMap((row) => row.values.map((v) => v[0]));
     setEditingProduct(product);
     setFormData({
       name: product.name,
@@ -55,10 +91,14 @@ export function ProductManagement({ products, onCreateProduct, onUpdateProduct, 
       stock: product.stock,
       category: product.category,
     });
+    setSerialNumbers(serials);
     setShowForm(true);
   };
 
   const handleDelete = (id: string) => {
+    const db = getDb();
+    db.run('DELETE FROM products WHERE id = ?', [id]);
+    db.run('DELETE FROM product_serial_numbers WHERE product_id = ?', [id]);
     onDeleteProduct?.(id);
   };
 
@@ -124,7 +164,7 @@ export function ProductManagement({ products, onCreateProduct, onUpdateProduct, 
               <input
                 type="number"
                 value={formData.stock}
-                onChange={(e) => setFormData({ ...formData, stock: parseInt(e.target.value) })}
+                onChange={(e) => handleQuantityChange(parseInt(e.target.value))}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               />
@@ -140,6 +180,24 @@ export function ProductManagement({ products, onCreateProduct, onUpdateProduct, 
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Números de Série
+              </label>
+              <div className="space-y-2">
+                {serialNumbers.map((serial, index) => (
+                  <input
+                    key={index}
+                    type="text"
+                    value={serial}
+                    onChange={(e) => handleSerialNumberChange(index, e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder={`Número de Série ${index + 1}`}
+                    required
+                  />
+                ))}
+              </div>
             </div>
             <div className="md:col-span-2 flex space-x-4">
               <button
@@ -191,6 +249,14 @@ export function ProductManagement({ products, onCreateProduct, onUpdateProduct, 
                 <span className={`font-semibold ${product.stock < 10 ? 'text-red-600' : 'text-gray-900'}`}>
                   {product.stock} unidades
                 </span>
+              </div>
+              <div>
+                <span className="text-sm text-gray-600">Números de Série:</span>
+                <ul className="list-disc list-inside text-gray-900">
+                  {(product.serialNumbers || []).map((serial, index) => (
+                    <li key={index}>{serial}</li>
+                  ))}
+                </ul>
               </div>
             </div>
 

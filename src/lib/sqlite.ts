@@ -1,6 +1,8 @@
 // Helper to initialize sql.js (SQLite compiled to WASM) in the browser and expose a simple DB API
 
 import initSqlJs, { SqlJsStatic, Database } from 'sql.js';
+import Database from 'better-sqlite3';
+import path from 'path';
 
 let SQL: SqlJsStatic | null = null;
 let db: Database | null = null;
@@ -8,6 +10,45 @@ let db: Database | null = null;
 const IDB_NAME = 'click-storage-sqlite';
 const IDB_STORE = 'databases';
 const IDB_KEY = 'sqlite-db';
+
+const dbPath = path.resolve(__dirname, '../../data/database.sqlite');
+db = new Database(dbPath, { verbose: console.log });
+
+// Inicializar tabelas, se necessário
+db.exec(`
+  CREATE TABLE IF NOT EXISTS products (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL,
+    price REAL NOT NULL,
+    stock INTEGER NOT NULL,
+    category TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS product_serial_numbers (
+    id TEXT PRIMARY KEY,
+    product_id TEXT NOT NULL,
+    serial_number TEXT NOT NULL UNIQUE,
+    FOREIGN KEY (product_id) REFERENCES products (id)
+  );
+
+  CREATE TABLE IF NOT EXISTS customers (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    email TEXT NOT NULL UNIQUE,
+    phone TEXT NOT NULL,
+    address TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS customer_products (
+    id TEXT PRIMARY KEY,
+    customer_id TEXT NOT NULL,
+    product_id TEXT NOT NULL,
+    quantity INTEGER NOT NULL,
+    FOREIGN KEY (customer_id) REFERENCES customers (id),
+    FOREIGN KEY (product_id) REFERENCES products (id)
+  );
+`);
 
 async function openIdb() {
   return new Promise<IDBDatabase>((resolve, reject) => {
@@ -230,8 +271,35 @@ export async function initSql() {
   return { SQL, db };
 }
 
+// Método para obter registros (GET)
+export function getRecords(table: string) {
+  try {
+    const stmt = db.prepare(`SELECT * FROM ${table}`);
+    return stmt.all();
+  } catch (error) {
+    console.error(`Erro ao obter registros da tabela ${table}:`, error);
+    throw error;
+  }
+}
+
+// Método para inserir registros (POST)
+export function postRecord(table: string, data: Record<string, any>) {
+  try {
+    const keys = Object.keys(data).join(', ');
+    const placeholders = Object.keys(data).map(() => '?').join(', ');
+    const values = Object.values(data);
+
+    const stmt = db.prepare(`INSERT INTO ${table} (${keys}) VALUES (${placeholders})`);
+    stmt.run(values);
+    console.log(`Registro inserido na tabela ${table}:`, data);
+  } catch (error) {
+    console.error(`Erro ao inserir registro na tabela ${table}:`, error);
+    throw error;
+  }
+}
+
+// Exportar o banco de dados para uso direto, se necessário
 export function getDb() {
-  if (!db) throw new Error('Database not initialized. Call initSql() first.');
   return db;
 }
 

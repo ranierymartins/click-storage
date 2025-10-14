@@ -28,6 +28,12 @@
       - `quantity` (integer, quantidade associada)
       - `assigned_at` (timestamp, data da associação)
 
+    - `product_serial_numbers` - Armazena números de série dos produtos
+      - `id` (uuid, primary key)
+      - `product_id` (uuid, foreign key para products)
+      - `serial_number` (text, número de série único)
+      - `created_at` (timestamp, data de criação)
+
   2. Segurança
     - RLS habilitado em todas as tabelas
     - Políticas para usuários autenticados poderem gerenciar seus dados
@@ -87,6 +93,17 @@ CREATE TABLE IF NOT EXISTS customer_products (
   CONSTRAINT customer_products_unique_assignment UNIQUE (customer_id, product_id)
 );
 
+-- Tabela de números de série dos produtos
+CREATE TABLE IF NOT EXISTS product_serial_numbers (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  product_id uuid NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  serial_number text NOT NULL UNIQUE,
+  created_at timestamptz DEFAULT now(),
+
+  -- Constraints
+  CONSTRAINT serial_number_not_empty CHECK (length(trim(serial_number)) > 0)
+);
+
 -- Índices para otimização
 CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);
 CREATE INDEX IF NOT EXISTS idx_products_stock ON products(stock);
@@ -96,6 +113,7 @@ CREATE INDEX IF NOT EXISTS idx_customers_created_at ON customers(created_at);
 CREATE INDEX IF NOT EXISTS idx_customer_products_customer_id ON customer_products(customer_id);
 CREATE INDEX IF NOT EXISTS idx_customer_products_product_id ON customer_products(product_id);
 CREATE INDEX IF NOT EXISTS idx_customer_products_assigned_at ON customer_products(assigned_at);
+CREATE INDEX IF NOT EXISTS idx_serial_numbers_product_id ON product_serial_numbers(product_id);
 
 -- Função para atualizar updated_at automaticamente
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -123,6 +141,7 @@ CREATE TRIGGER update_customers_updated_at
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE customer_products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE product_serial_numbers ENABLE ROW LEVEL SECURITY;
 
 -- Políticas de segurança para products
 CREATE POLICY "Usuários autenticados podem ver todos os produtos"
@@ -198,6 +217,32 @@ CREATE POLICY "Usuários autenticados podem atualizar associações"
 
 CREATE POLICY "Usuários autenticados podem deletar associações"
   ON customer_products
+  FOR DELETE
+  TO authenticated
+  USING (true);
+
+-- Políticas de segurança para product_serial_numbers
+CREATE POLICY "Usuários autenticados podem ver todos os números de série"
+  ON product_serial_numbers
+  FOR SELECT
+  TO authenticated
+  USING (true);
+
+CREATE POLICY "Usuários autenticados podem inserir números de série"
+  ON product_serial_numbers
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+CREATE POLICY "Usuários autenticados podem atualizar números de série"
+  ON product_serial_numbers
+  FOR UPDATE
+  TO authenticated
+  USING (true)
+  WITH CHECK (true);
+
+CREATE POLICY "Usuários autenticados podem deletar números de série"
+  ON product_serial_numbers
   FOR DELETE
   TO authenticated
   USING (true);

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, User, Package, Minus } from 'lucide-react';
 import { Customer, Product, CustomerProduct } from '../types';
 
@@ -9,7 +9,7 @@ interface CustomerManagementProps {
   onAddCustomer: (customer: Omit<Customer, 'id' | 'createdAt'>) => void;
   onUpdateCustomer: (id: string, updates: Partial<Customer>) => void;
   onDeleteCustomer: (id: string) => void;
-  onAssignProduct: (customerId: string, productId: string, quantity: number) => void;
+  onAssignProduct: (customerId: string, productId: string, serialNumbers: string[]) => void;
   onRemoveProductFromCustomer: (customerProductId: string) => void;
 }
 
@@ -28,14 +28,30 @@ export function CustomerManagement({
   const [showProductAssignment, setShowProductAssignment] = useState<string | null>(null);
   const [assignmentForm, setAssignmentForm] = useState({
     productId: '',
-    quantity: 1,
+    selectedSerialNumbers: [] as string[],
   });
+  const [availableSerialNumbers, setAvailableSerialNumbers] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
     address: '',
   });
+
+  const fetchSerialNumbers = (productId: string) => {
+    const product = products.find((p) => p.id === productId);
+    if (product) {
+      setAvailableSerialNumbers(product.serialNumbers || []);
+    }
+  };
+
+  useEffect(() => {
+    if (assignmentForm.productId) {
+      fetchSerialNumbers(assignmentForm.productId);
+    } else {
+      setAvailableSerialNumbers([]);
+    }
+  }, [assignmentForm.productId]);
 
   const resetForm = () => {
     setFormData({
@@ -70,19 +86,29 @@ export function CustomerManagement({
   };
 
   const handleProductAssignment = (customerId: string) => {
-    if (assignmentForm.productId && assignmentForm.quantity > 0) {
-      onAssignProduct(customerId, assignmentForm.productId, assignmentForm.quantity);
-      setAssignmentForm({ productId: '', quantity: 1 });
+    if (assignmentForm.productId && assignmentForm.selectedSerialNumbers.length > 0) {
+      onAssignProduct(customerId, assignmentForm.productId, assignmentForm.selectedSerialNumbers);
+      setAssignmentForm({ productId: '', selectedSerialNumbers: [] });
       setShowProductAssignment(null);
     }
   };
 
+  const toggleSerialNumberSelection = (serialNumber: string) => {
+    setAssignmentForm((prev) => {
+      const isSelected = prev.selectedSerialNumbers.includes(serialNumber);
+      const updatedSerialNumbers = isSelected
+        ? prev.selectedSerialNumbers.filter((sn) => sn !== serialNumber)
+        : [...prev.selectedSerialNumbers, serialNumber];
+      return { ...prev, selectedSerialNumbers: updatedSerialNumbers };
+    });
+  };
+
   const getCustomerProducts = (customerId: string) => {
     return customerProducts
-      .filter(cp => cp.customerId === customerId)
-      .map(cp => ({
+      .filter((cp) => cp.customerId === customerId)
+      .map((cp) => ({
         ...cp,
-        product: products.find(p => p.id === cp.productId)!,
+        product: products.find((p) => p.id === cp.productId)!,
       }));
   };
 
@@ -231,34 +257,39 @@ export function CustomerManagement({
 
                 {showProductAssignment === customer.id && (
                   <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                    <div className="flex space-x-2">
+                    <div className="flex space-x-2 mb-4">
                       <select
                         value={assignmentForm.productId}
                         onChange={(e) => setAssignmentForm({ ...assignmentForm, productId: e.target.value })}
                         className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                       >
                         <option value="">Selecione um produto</option>
-                        {products.filter(p => p.stock > 0).map(product => (
+                        {products.map((product) => (
                           <option key={product.id} value={product.id}>
-                            {product.name} (Estoque: {product.stock})
+                            {product.name}
                           </option>
                         ))}
                       </select>
-                      <input
-                        type="number"
-                        min="1"
-                        value={assignmentForm.quantity}
-                        onChange={(e) => setAssignmentForm({ ...assignmentForm, quantity: parseInt(e.target.value) })}
-                        className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                        placeholder="Qtd"
-                      />
-                      <button
-                        onClick={() => handleProductAssignment(customer.id)}
-                        className="bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
-                      >
-                        Associar
-                      </button>
                     </div>
+                    <div className="space-y-2">
+                      {availableSerialNumbers.map((serial) => (
+                        <div key={serial} className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            checked={assignmentForm.selectedSerialNumbers.includes(serial)}
+                            onChange={() => toggleSerialNumberSelection(serial)}
+                            className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <span className="text-sm text-gray-700">{serial}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => handleProductAssignment(customer.id)}
+                      className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                    >
+                      Associar Produto
+                    </button>
                   </div>
                 )}
 

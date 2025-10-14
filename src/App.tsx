@@ -4,29 +4,30 @@ import { Dashboard } from './components/Dashboard';
 import { ProductManagement } from './components/ProductManagement';
 import { CustomerManagement } from './components/CustomerManagement';
 import { Reports } from './components/Reports';
-import { useInventory } from './hooks/useInventory';
 import { useSqliteInventory } from './hooks/useSqliteInventory';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
-  // Usar SQLite hook se disponível
   const sqlite = useSqliteInventory();
-  const [products, setProducts] = useState<any[]>([]);
-
-  // sync products when sqlite ready
-  React.useEffect(() => {
-    if (sqlite.ready) setProducts(sqlite.products as any[]);
-  }, [sqlite.ready, sqlite.products]);
 
   const {
+    ready,
+    products,
     customers,
     customerProducts,
-    createCustomer: addCustomer,
+    createProduct,
+    updateProduct,
+    deleteProduct,
+    createCustomer,
     updateCustomer,
     deleteCustomer,
     assignProductToCustomer,
     removeProductFromCustomer,
-  } = sqlite as any;
+  } = sqlite;
+
+  if (!ready) {
+    return <div>Carregando...</div>;
+  }
 
   const renderContent = () => {
     switch (activeTab) {
@@ -41,11 +42,11 @@ function App() {
       case 'products':
         return (
           <ProductManagement
-              products={products}
-              onCreateProduct={sqlite.createProduct}
-              onUpdateProduct={sqlite.updateProduct}
-              onDeleteProduct={sqlite.deleteProduct}
-            />
+            products={products}
+            onCreateProduct={createProduct}
+            onUpdateProduct={updateProduct}
+            onDeleteProduct={deleteProduct}
+          />
         );
       case 'customers':
         return (
@@ -53,7 +54,7 @@ function App() {
             customers={customers}
             products={products}
             customerProducts={customerProducts}
-            onAddCustomer={addCustomer}
+            onAddCustomer={createCustomer}
             onUpdateCustomer={updateCustomer}
             onDeleteCustomer={deleteCustomer}
             onAssignProduct={assignProductToCustomer}
