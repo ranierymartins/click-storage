@@ -7,19 +7,13 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview",
-    "start:server": "node ./server/src/index.js",
-    "dev:server": "cd server && npm run dev",
-    "setup:local-server": "echo 'Run: cd server && npm install && node src/migrate.js && node src/seed.js'",
-    "migrate:apply": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/apply-sql.ps1",
-    "migrate:psql": "psql -f ./supabase/migrations/create_inventory_tables.sql",
-    "migrate:seed": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/apply-sql.ps1"
+    "preview": "vite preview"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
     "lucide-react": "^0.344.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "sqlite3": "^5.1.7"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",

@@ -8,7 +8,6 @@ export interface Product {
   brand?: string; // marca do produto
   serialNumbers?: string[]; // lista de números de série individuais
   createdAt: Date;
-  serialNumbers?: string[];
 }
 
 export interface Customer {
@@ -49,6 +48,18 @@ export interface CustomerProduct {
   quantity: number;
   serialNumbers?: string[]; // números de série associados a essa alocação
   assignedAt: Date;
+}
+
+export interface Accessory {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  stock: number;
+  category: string;
+  brand?: string;
+  serialNumbers?: string[];
+  createdAt: Date;
 }
 
 export interface CustomerAccessory {
