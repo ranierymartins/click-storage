@@ -21,7 +21,7 @@ export function Navigation({ activeTab, setActiveTab }: NavigationProps) {
     <nav className="bg-gray-900 text-white h-screen w-64 fixed left-0 top-0 overflow-y-auto">
       <div className="p-6">
         <div className="flex items-center space-x-2 mb-8">
-          <img src="src\img\clicklaudos_logo.jpeg" alt="Logo" className="h-8 w-8"/>
+          <img src="https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/41/4b/fd/414bfd7f-7053-97bc-0736-f9bb75ffa5be/AppIcon-0-0-1x_U007emarketing-0-6-0-0-P3-85-220.png/512x512bb.jpg" alt="Logo" className="h-8 w-8"/>
           <h1 className="text-xl font-bold">Click Store</h1>
         </div>
         

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Teste Supabase</title>
+</head>
+<body>
+    <h1>Teste de Conectividade Supabase</h1>
+    <div id="result"></div>
+    
+    <script type="module">
+        import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js@2';
+        
+        const supabaseUrl = 'https://rycggxatgnecazzbdkyk.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ5Y2dneGF0Z25lY2F6emJkeWtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA0Mzc3NTQsImV4cCI6MjA3NjAxMzc1NH0.K_eZQb9_67Glv4I287d5qoYqjo1HHbIsBq8ou6EobyE';
+        
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
+        async function testConnection() {
+            const resultDiv = document.getElementById('result');
+            
+            try {
+                // Teste básico de conexão
+                const { data, error } = await supabase.from('products').select('count').limit(1);
+                
+                if (error) {
+                    resultDiv.innerHTML = `<p style="color: red;">❌ Erro: ${error.message}</p>`;
+                } else {
+                    resultDiv.innerHTML = `<p style="color: green;">✅ Conexão com Supabase funcionando!</p>`;
+                }
+            } catch (err) {
+                resultDiv.innerHTML = `<p style="color: red;">❌ Erro de conexão: ${err.message}</p>`;
+            }
+        }
+        
+        testConnection();
+    </script>
+</body>
+</html>
+

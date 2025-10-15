@@ -633,25 +633,192 @@ export function useInventory() {
     }
   };
 
-  // Funções para Acessórios (simplificadas para manter compatibilidade)
+  // Funções para Acessórios
   const assignAccessoryToCustomer = async (customerId: string, accessoryId: string, quantity: number) => {
-    // Implementação similar à de produtos
-    console.log('assignAccessoryToCustomer not fully implemented yet');
+    try {
+      const accessory = accessories.find(a => a.id === accessoryId);
+      if (!accessory) return;
+
+      const currentSerials = Array.isArray((accessory as any).serialNumbers)
+        ? (accessory as any).serialNumbers
+        : [];
+
+      const assignedSerials = currentSerials.slice(0, quantity);
+      const remainingSerials = currentSerials.slice(assignedSerials.length);
+
+      // Verificar se já existe associação
+      const existingAssignment = customerAccessories.find(
+        ca => ca.customerId === customerId && ca.accessoryId === accessoryId
+      );
+
+      if (existingAssignment) {
+        const updatedAssignment = {
+          quantity: existingAssignment.quantity + (assignedSerials.length > 0 ? assignedSerials.length : quantity),
+          serial_numbers: assignedSerials.length > 0
+            ? [...(existingAssignment.serialNumbers || []), ...assignedSerials]
+            : existingAssignment.serialNumbers,
+        } as any;
+
+        const result = await customerAccessoriesApi.update(existingAssignment.id, updatedAssignment);
+        const mapped = mapSupabaseCustomerAccessory(result);
+        setCustomerAccessories(prev => prev.map(ca => ca.id === existingAssignment.id ? mapped : ca));
+      } else {
+        const newAssignment = {
+          customer_id: customerId,
+          accessory_id: accessoryId,
+          quantity: assignedSerials.length > 0 ? assignedSerials.length : quantity,
+          serial_numbers: assignedSerials.length > 0 ? assignedSerials : [],
+        } as any;
+
+        const result = await customerAccessoriesApi.create(newAssignment);
+        const mapped = mapSupabaseCustomerAccessory(result);
+        setCustomerAccessories(prev => [...prev, mapped]);
+      }
+
+      // Atualizar acessório (estoque e seriais)
+      const newStock = Math.max(0, accessory.stock - (assignedSerials.length > 0 ? assignedSerials.length : quantity));
+      const updates: any = { stock: newStock };
+      if (assignedSerials.length > 0) updates.serial_numbers = remainingSerials;
+      const updated = await accessoriesApi.update(accessoryId, updates);
+      const mappedAccessory = mapSupabaseAccessory(updated);
+      setAccessories(prev => prev.map(a => a.id === accessoryId ? mappedAccessory : a));
+    } catch (err) {
+      console.error('Erro ao associar acessório ao cliente:', err);
+      throw err;
+    }
   };
 
   const assignAccessoryToCustomerBySerials = async (customerId: string, accessoryId: string, serials: string[]) => {
-    // Implementação similar à de produtos
-    console.log('assignAccessoryToCustomerBySerials not fully implemented yet');
+    try {
+      if (!serials || serials.length === 0) return;
+
+      const accessory = accessories.find(a => a.id === accessoryId);
+      if (!accessory) return;
+
+      const currentSerials = Array.isArray((accessory as any).serialNumbers)
+        ? (accessory as any).serialNumbers
+        : [];
+      const remainingSerials = currentSerials.filter((s: string) => !serials.includes(s));
+
+      // Atualizar acessório no estoque
+      const updated = await accessoriesApi.update(accessoryId, {
+        stock: Math.max(0, accessory.stock - serials.length),
+        serial_numbers: remainingSerials,
+      } as any);
+      const mappedAccessory = mapSupabaseAccessory(updated);
+      setAccessories(prev => prev.map(a => a.id === accessoryId ? mappedAccessory : a));
+
+      // Criar ou atualizar associação
+      const existingAssignment = customerAccessories.find(ca => ca.customerId === customerId && ca.accessoryId === accessoryId);
+      if (existingAssignment) {
+        const updatedAssignment = {
+          quantity: existingAssignment.quantity + serials.length,
+          serial_numbers: [...(existingAssignment.serialNumbers || []), ...serials],
+        } as any;
+
+        const result = await customerAccessoriesApi.update(existingAssignment.id, updatedAssignment);
+        const mapped = mapSupabaseCustomerAccessory(result);
+        setCustomerAccessories(prev => prev.map(ca => ca.id === existingAssignment.id ? mapped : ca));
+      } else {
+        const newAssignment = {
+          customer_id: customerId,
+          accessory_id: accessoryId,
+          quantity: serials.length,
+          serial_numbers: serials,
+        } as any;
+
+        const result = await customerAccessoriesApi.create(newAssignment);
+        const mapped = mapSupabaseCustomerAccessory(result);
+        setCustomerAccessories(prev => [...prev, mapped]);
+      }
+    } catch (err) {
+      console.error('Erro ao associar acessório por seriais:', err);
+      throw err;
+    }
   };
 
   const removeAccessoryFromCustomer = async (customerAccessoryId: string) => {
-    // Implementação similar à de produtos
-    console.log('removeAccessoryFromCustomer not fully implemented yet');
+    try {
+      const assignment = customerAccessories.find(ca => ca.id === customerAccessoryId);
+      if (!assignment) return;
+
+      // Retornar estoque ao acessório
+      const accessory = accessories.find(a => a.id === assignment.accessoryId);
+      if (accessory) {
+        const assignmentSerials = Array.isArray((assignment as any).serialNumbers)
+          ? (assignment as any).serialNumbers
+          : [];
+        const accessorySerials = Array.isArray((accessory as any).serialNumbers)
+          ? (accessory as any).serialNumbers
+          : [];
+        const newSerials = [...accessorySerials, ...assignmentSerials];
+
+        const updated = await accessoriesApi.update(accessory.id, {
+          stock: accessory.stock + assignment.quantity,
+          serial_numbers: newSerials,
+        } as any);
+        const mappedAccessory = mapSupabaseAccessory(updated);
+        setAccessories(prev => prev.map(a => a.id === accessory.id ? mappedAccessory : a));
+      }
+
+      // Remover associação
+      await customerAccessoriesApi.delete(customerAccessoryId);
+      setCustomerAccessories(prev => prev.filter(ca => ca.id !== customerAccessoryId));
+    } catch (err) {
+      console.error('Erro ao remover acessório do cliente:', err);
+      throw err;
+    }
   };
 
   const returnAssignedAccessorySerialsToStock = async (customerId: string, accessoryId: string, serials: string[]) => {
-    // Implementação similar à de produtos
-    console.log('returnAssignedAccessorySerialsToStock not fully implemented yet');
+    try {
+      if (!serials || serials.length === 0) return;
+
+      const assignment = customerAccessories.find(ca => ca.customerId === customerId && ca.accessoryId === accessoryId);
+      if (!assignment) return;
+
+      const assignmentSerials = Array.isArray((assignment as any).serialNumbers)
+        ? (assignment as any).serialNumbers
+        : [];
+      const toReturn = assignmentSerials.filter((s: string) => serials.includes(s));
+      if (toReturn.length === 0) return;
+
+      const remainingAssignmentSerials = assignmentSerials.filter((s: string) => !toReturn.includes(s));
+      const remainingQuantity = Math.max(0, assignment.quantity - toReturn.length);
+
+      if (remainingQuantity === 0) {
+        await customerAccessoriesApi.delete(assignment.id);
+        setCustomerAccessories(prev => prev.filter(ca => ca.id !== assignment.id));
+      } else {
+        const updatedAssignment = {
+          quantity: remainingQuantity,
+          serial_numbers: remainingAssignmentSerials,
+        } as any;
+
+        const result = await customerAccessoriesApi.update(assignment.id, updatedAssignment);
+        const mapped = mapSupabaseCustomerAccessory(result);
+        setCustomerAccessories(prev => prev.map(ca => ca.id === assignment.id ? mapped : ca));
+      }
+
+      // Retornar seriais ao acessório
+      const accessory = accessories.find(a => a.id === accessoryId);
+      if (accessory) {
+        const accessorySerials = Array.isArray((accessory as any).serialNumbers)
+          ? (accessory as any).serialNumbers
+          : [];
+        const newAccessorySerials = [...accessorySerials, ...toReturn];
+
+        const updated = await accessoriesApi.update(accessory.id, {
+          stock: accessory.stock + toReturn.length,
+          serial_numbers: newAccessorySerials,
+        } as any);
+        const mappedAccessory = mapSupabaseAccessory(updated);
+        setAccessories(prev => prev.map(a => a.id === accessory.id ? mappedAccessory : a));
+      }
+    } catch (err) {
+      console.error('Erro ao retornar seriais ao estoque do acessório:', err);
+      throw err;
+    }
   };
 
   return {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Navigation } from './components/Navigation';
 import { Dashboard } from './components/Dashboard';
 import { ProductManagement } from './components/ProductManagement';
@@ -12,6 +12,25 @@ import { useInventory } from './hooks/useInventory';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [pin, setPin] = useState('');
+  const [unlocked, setUnlocked] = useState(false);
+  const [pinError, setPinError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const saved = sessionStorage.getItem('pinUnlocked');
+    if (saved === 'true') setUnlocked(true);
+  }, []);
+
+  const handleUnlock = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pin === '147852') {
+      setUnlocked(true);
+      sessionStorage.setItem('pinUnlocked', 'true');
+      setPinError(null);
+    } else {
+      setPinError('PIN incorreto');
+    }
+  };
   // useInventory fornece produtos e operações (persistidas no hook)
   const {
     products,
@@ -128,6 +147,36 @@ function App() {
         return <Dashboard products={products} customers={customers} customerProducts={customerProducts} />;
     }
   };
+
+  if (!unlocked) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+        <div className="w-full max-w-sm bg-white rounded-xl shadow p-6">
+          <h1 className="text-xl font-semibold text-gray-800 mb-4 text-center">Digite o PIN para continuar</h1>
+          <form onSubmit={handleUnlock} className="space-y-4">
+            <input
+              type="password"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={pin}
+              onChange={(e) => setPin(e.target.value)}
+              placeholder="PIN"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            {pinError && (
+              <div className="text-sm text-red-600">{pinError}</div>
+            )}
+            <button
+              type="submit"
+              className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Desbloquear
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

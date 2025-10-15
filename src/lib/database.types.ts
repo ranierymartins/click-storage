@@ -15,6 +15,10 @@ export interface Database {
           name: string
           description: string | null
           price: number | null
+          stock: number | null
+          category: string | null
+          brand: string | null
+          serial_numbers: Json
           created_at: string
           updated_at: string
         }
@@ -23,6 +27,10 @@ export interface Database {
           name: string
           description?: string | null
           price?: number | null
+          stock?: number | null
+          category?: string | null
+          brand?: string | null
+          serial_numbers?: Json
           created_at?: string
           updated_at?: string
         }
@@ -31,6 +39,10 @@ export interface Database {
           name?: string
           description?: string | null
           price?: number | null
+          stock?: number | null
+          category?: string | null
+          brand?: string | null
+          serial_numbers?: Json
           created_at?: string
           updated_at?: string
         }
@@ -40,21 +52,27 @@ export interface Database {
         Row: {
           id: string
           name: string
-          description: string | null
+          email: string | null
+          phone: string | null
+          address: string | null
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
           name: string
-          description?: string | null
+          email?: string | null
+          phone?: string | null
+          address?: string | null
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
           name?: string
-          description?: string | null
+          email?: string | null
+          phone?: string | null
+          address?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -65,22 +83,25 @@ export interface Database {
           id: string
           customer_id: string
           accessory_id: string
+          quantity: number
+          serial_numbers: Json
           assigned_at: string
-          notes: string | null
         }
         Insert: {
           id?: string
           customer_id: string
           accessory_id: string
+          quantity?: number
+          serial_numbers?: Json
           assigned_at?: string
-          notes?: string | null
         }
         Update: {
           id?: string
           customer_id?: string
           accessory_id?: string
+          quantity?: number
+          serial_numbers?: Json
           assigned_at?: string
-          notes?: string | null
         }
         Relationships: [
           {
@@ -104,22 +125,25 @@ export interface Database {
           id: string
           customer_id: string
           product_id: string
+          quantity: number
+          serial_numbers: Json
           assigned_at: string
-          notes: string | null
         }
         Insert: {
           id?: string
           customer_id: string
           product_id: string
+          quantity?: number
+          serial_numbers?: Json
           assigned_at?: string
-          notes?: string | null
         }
         Update: {
           id?: string
           customer_id?: string
           product_id?: string
+          quantity?: number
+          serial_numbers?: Json
           assigned_at?: string
-          notes?: string | null
         }
         Relationships: [
           {
@@ -144,7 +168,7 @@ export interface Database {
           name: string
           email: string | null
           phone: string | null
-          company_id: string | null
+          address: string | null
           created_at: string
           updated_at: string
         }
@@ -153,7 +177,7 @@ export interface Database {
           name: string
           email?: string | null
           phone?: string | null
-          company_id?: string | null
+          address?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -162,44 +186,50 @@ export interface Database {
           name?: string
           email?: string | null
           phone?: string | null
-          company_id?: string | null
+          address?: string | null
           created_at?: string
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "customers_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          }
+          
         ]
       }
       maintenance_items: {
         Row: {
           id: string
+          original_product_id: string | null
           name: string
           description: string | null
           price: number | null
+          stock: number | null
+          brand: string | null
+          serial_numbers: Json
+          company_id: string | null
           created_at: string
-          updated_at: string
         }
         Insert: {
           id?: string
+          original_product_id?: string | null
           name: string
           description?: string | null
           price?: number | null
+          stock?: number | null
+          brand?: string | null
+          serial_numbers?: Json
+          company_id?: string | null
           created_at?: string
-          updated_at?: string
         }
         Update: {
           id?: string
+          original_product_id?: string | null
           name?: string
           description?: string | null
           price?: number | null
+          stock?: number | null
+          brand?: string | null
+          serial_numbers?: Json
+          company_id?: string | null
           created_at?: string
-          updated_at?: string
         }
         Relationships: []
       }
@@ -209,6 +239,10 @@ export interface Database {
           name: string
           description: string | null
           price: number | null
+          stock: number | null
+          category: string | null
+          brand: string | null
+          serial_numbers: Json
           created_at: string
           updated_at: string
         }
@@ -217,6 +251,10 @@ export interface Database {
           name: string
           description?: string | null
           price?: number | null
+          stock?: number | null
+          category?: string | null
+          brand?: string | null
+          serial_numbers?: Json
           created_at?: string
           updated_at?: string
         }
@@ -225,6 +263,10 @@ export interface Database {
           name?: string
           description?: string | null
           price?: number | null
+          stock?: number | null
+          category?: string | null
+          brand?: string | null
+          serial_numbers?: Json
           created_at?: string
           updated_at?: string
         }
