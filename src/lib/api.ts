@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { Database } from './supabase';
+import type { Database } from './database.types';
 
 // Tipos para facilitar o uso
 type Product = Database['public']['Tables']['products']['Row'];
