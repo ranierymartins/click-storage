@@ -26,7 +26,6 @@ export default function Acessories({ accessories, onAddAccessory, onUpdateAccess
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (formData.stock !== formData.serialNumbers.length) { setFormError(`Quantidade (${formData.stock}) deve ser igual aos seriais cadastrados (${formData.serialNumbers.length})`); return; }
     const exec = () => {
       if (editing) onUpdateAccessory(editing.id, formData); else onAddAccessory(formData);
       reset();
@@ -77,7 +76,7 @@ export default function Acessories({ accessories, onAddAccessory, onUpdateAccess
                 <input type="text" value={formData.brand} onChange={(e)=>setFormData({...formData, brand: e.target.value})} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Números de Série</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Números de Série (opcional)</label>
                 <div className="mb-2">
                   <div className="flex space-x-2">
                     <input type="text" placeholder="Adicionar número de série" id="serial-input-accessory" className="flex-1 px-3 py-2 border border-gray-300 rounded-lg" onKeyDown={(e)=>{ if (e.key === 'Enter') { e.preventDefault(); const el = e.target as HTMLInputElement; addSerial(el.value.trim()); el.value = ''; } }} />
@@ -86,17 +85,14 @@ export default function Acessories({ accessories, onAddAccessory, onUpdateAccess
                 </div>
                 <div className="space-y-1">
                   {formData.serialNumbers.map((s,i)=>(<div key={i} className="flex items-center justify-between bg-gray-50 p-2 rounded"><span className="text-sm">{s}</span><button type="button" onClick={()=>removeSerialAt(i)} className="text-red-600 text-sm">Remover</button></div>))}
-                  {formData.serialNumbers.length === 0 && (<p className="text-xs text-gray-500">Adicione números de série individuais.</p>)}
+                  {formData.serialNumbers.length === 0 && (<p className="text-xs text-gray-500">Números de série são opcionais para acessórios.</p>)}
                 </div>
               </div>
 
-              <div className="md:col-span-2">
-                <p className={`text-sm mb-2 ${formData.stock === formData.serialNumbers.length ? 'text-green-600' : 'text-red-600'}`}>Quantidade: {formData.stock} — Seriais: {formData.serialNumbers.length} {formData.stock === formData.serialNumbers.length ? '✓' : ' (devem ser iguais)'}</p>
-                {formError && <p className="text-sm text-red-600 mb-2">{formError}</p>}
-              </div>
+              {formError && <div className="md:col-span-2"><p className="text-sm text-red-600">{formError}</p></div>}
 
               <div className="md:col-span-2 flex space-x-4">
-                <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700" disabled={formData.stock !== formData.serialNumbers.length}>{editing ? 'Atualizar' : 'Criar'} Acessório</button>
+                <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">{editing ? 'Atualizar' : 'Criar'} Acessório</button>
                 <button type="button" onClick={reset} className="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg">Cancelar</button>
               </div>
 
