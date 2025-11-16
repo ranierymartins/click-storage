@@ -373,13 +373,13 @@ export function CustomerManagement({
                             <button onClick={() => { setSelectedSerials([]); setSelectedCompany(undefined); setDefectSelector({ customerId: customer.id, productId: cp.productId }); }} className="p-1 text-yellow-600 hover:bg-yellow-50 rounded transition-colors text-sm">Selecionar defeitos</button>
                             <button onClick={() => setRemoveSelector({ customerId: customer.id, productId: cp.productId })} className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors text-sm">Remover produtos</button>
                             
-                            {/* Botão para deletar os produtos de Debug*/}
+                            {/* Botão para deletar os produtos de Debug
                             <button
                               onClick={() => setConfirmConfig({ open: true, title: 'Remover produto do cliente', description: 'Confirma remover este produto do cliente (retorna ao estoque)?', onConfirm: () => { onRemoveProductFromCustomer(cp.id); setConfirmConfig({ open: false }); } })}
                               className="h-4 text-red-600 hover:bg-red-50 rounded transition-colors"
                             >
                               <Minus className="h-3 w-3" />*Debug
-                            </button>
+                            </button>*/}
                       </div>
                     </div>
                   ))}
