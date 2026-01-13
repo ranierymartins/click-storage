@@ -44,11 +44,6 @@ export function ProductManagement({ products, onAddProduct, onUpdateProduct, onD
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // validação: quantidade deve ser igual ao número de números de série
-    if (formData.stock !== formData.serialNumbers.length) {
-      setFormError(`A quantidade (${formData.stock}) deve ser igual ao número de números de série (${formData.serialNumbers.length}).`);
-      return;
-    }
 
     // Prepare confirmation before executing add/update
     const exec = () => {
@@ -239,22 +234,14 @@ export function ProductManagement({ products, onAddProduct, onUpdateProduct, onD
                   </div>
                 ))}
                 {formData.serialNumbers.length === 0 && (
-                  <p className="text-xs text-gray-500">Adicione números de série individuais. Se cadastrar 10 unidades, cadastre 10 seriais.</p>
+                  <p className="text-xs text-gray-500">Adicione números de série individuais (opcional). Se desejar, cadastre um serial por unidade.</p>
                 )}
               </div>
-            </div>
-            {/* helper mostrando comparação entre estoque e seriais */}
-            <div className="md:col-span-2">
-              <p className={`text-sm mb-2 ${formData.stock === formData.serialNumbers.length ? 'text-green-600' : 'text-red-600'}`}>
-                Quantidade: {formData.stock} — Seriais cadastrados: {formData.serialNumbers.length} {formData.stock === formData.serialNumbers.length ? '✓' : ' (devem ser iguais)'}
-              </p>
-              {formError && <p className="text-sm text-red-600 mb-2">{formError}</p>}
             </div>
             <div className="md:col-span-2 flex space-x-4">
               <button
                 type="submit"
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={formData.stock !== formData.serialNumbers.length}
+                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
               >
                 {editingProduct ? 'Atualizar' : 'Criar'} Produto
               </button>
